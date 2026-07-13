@@ -83,10 +83,17 @@ Un seul `<style>` (design system, `src/styles.css`) puis un seul `<script>`
 - **Sécurité XSS** : toute donnée utilisateur affichée passe par `esc()`. Pour injecter
   du JSON dans un `onclick`, utilise `attr()`. **Ne régresse pas là-dessus.**
 - **Icônes** : jamais d'emoji. Utilise `ic('nom')` ; ajoute les nouveaux tracés à l'objet `I`.
+- **A11y (P0-4)** : tout bouton icône porte un `aria-label` ; tout cliquable non-`<button>`
+  porte `role="button"` (ou `checkbox`) + `tabindex="0"` — l'activation Entrée/Espace est
+  déléguée globalement. Les modals passent par `modal()` (dialog + piège à focus). Ne
+  régresse pas là-dessus.
 - **Couleurs/espacements** : utilise les variables CSS (`var(--blue)`, `var(--sp-4)`, …),
   jamais de valeurs magiques en dur.
 - **Persistance** : passe toujours par `Store.get/set` et le miroir dans `S`. Après une
-  mutation de `S.x`, appelle `save('x')`.
+  mutation de `S.x`, appelle `save('x')` (écriture debouncée ~250 ms, flush sur
+  `beforeunload`). **Si tu changes la forme des données** : incrémente `SCHEMA_VERSION`
+  et ajoute une migration idempotente `MIGRATIONS[ancienne version]` (P1-1) — le
+  démarrage et `importData` migrent automatiquement les vieilles données.
 - **fr-CA** partout dans l'UI. Terminologie infirmière québécoise.
 - **Pas de `localStorage`/`sessionStorage` directs dans un artifact claude.ai** — mais ici,
   dans le fichier autonome, `Store` les utilise volontairement en repli. C'est voulu.
