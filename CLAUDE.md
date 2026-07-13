@@ -11,7 +11,8 @@ Toute l'interface est en **français québécois (fr-CA)**, avec la terminologie
 locale (OIIQ/OIIAQ, PTI, jugement clinique, PQRSTU, SBAR).
 
 C'est aujourd'hui un **prototype fonctionnel (MVP)** livré comme **un seul fichier
-`nursaflow.html` autonome** (aucune étape de build). Il fonctionne :
+`nursaflow.html` autonome**, généré depuis la source `src/` par `node build.mjs`
+(voir §2). Il fonctionne :
 - ouvert localement (`file://`),
 - hébergé (http/https),
 - installé sur l'écran d'accueil d'un téléphone (PWA légère via manifest inline),
@@ -20,8 +21,15 @@ C'est aujourd'hui un **prototype fonctionnel (MVP)** livré comme **un seul fich
 ## 2. Contrainte d'architecture la plus importante
 
 **Le livrable est un fichier HTML unique et autonome.** Tout — CSS, JS, icônes SVG,
-icône PWA (base64), manifest (data-URI) — est inline. Aucune dépendance locale, aucun
-`node_modules`, aucun bundler.
+icône PWA (base64), manifest (data-URI) — est inline. Aucune dépendance runtime, aucun
+bundler (`node_modules` ne sert qu'aux tests : jsdom).
+
+**Source ↔ build (P0-2)** : la source de vérité est `src/` —
+`src/index.html` (squelette avec les jetons `@@NURSAFLOW:STYLES@@` et
+`@@NURSAFLOW:APP_JS@@`), `src/styles.css` (design system) et `src/app.js`
+(toute la logique). `node build.mjs` inline le tout et régénère `nursaflow.html`.
+**N'édite jamais `nursaflow.html` directement** : modifie `src/`, relance le build,
+puis valide (§7).
 
 Deux seules ressources externes chargées par CDN :
 - `three.js r128` (anatomie 3D) — `cdnjs`
@@ -33,9 +41,10 @@ Deux seules ressources externes chargées par CDN :
 > décris la migration ; ne l'impose pas silencieusement. Voir `AMELIORATIONS.md` §
 > « Refonte structurelle » pour le chemin recommandé.
 
-## 3. Carte du code (`nursaflow.html`, ~1760 lignes)
+## 3. Carte du code (`src/`, assemblé en `nursaflow.html` ~1760 lignes)
 
-Un seul `<style>` (design system) puis un seul `<script>` (toute la logique).
+Un seul `<style>` (design system, `src/styles.css`) puis un seul `<script>`
+(toute la logique, `src/app.js`).
 
 | Zone | Contenu |
 |---|---|
@@ -115,23 +124,19 @@ NursaFlow touche aux **médicaments, doses et raisonnement clinique**. Règles :
 
 ## 7. Comment valider une modification (obligatoire avant de livrer)
 
-Il n'y a pas de build ; valide ainsi :
-
 ```bash
-# 1) Extraire le JS inline et vérifier la syntaxe
-python3 -c "import re;h=open('nursaflow.html').read();open('_app.js','w').write(re.findall(r'<script>(.*?)</script>',h,re.S)[-1])"
-node --check _app.js
+# 1) Régénérer le livrable depuis la source
+node build.mjs
 
-# 2) Vérifier l'absence de doublons de fonctions (les éditions par marqueurs en ont déjà causé)
-grep -oE '^(async )?function [a-zA-Z0-9_]+' _app.js | sort | uniq -d
-
-# 3) Test de démarrage headless (jsdom) en simulant file:// + CDN bloqués + hors ligne
-#    (installer jsdom : npm install jsdom --no-save)
-#    Charger le HTML, attendre ~600ms, vérifier : nav rendue, #main non vide, 0 erreur console.
-#    Puis simuler des interactions : go('tasks'), addTask(), go('tools')+calcRun(), go('settings').
+# 2) Lancer le filet de tests P0-1 sur la sortie
+#    (installer jsdom une fois : npm install jsdom --no-save)
+#    Couvre : node --check sur le JS extrait, détection de doublons de fonctions,
+#    démarrage jsdom (file:// + CDN bloqués + hors ligne), navigation des vues,
+#    CRUD tâche, flashcard, calcRun = 350 mg, Réglages, export/import.
+node tests/smoke.mjs
 ```
 
-**Toujours** ré-exécuter ces trois étapes après édition. Le fichier a un historique de
+**Toujours** ré-exécuter ces deux étapes après édition de `src/`. Le fichier a un historique de
 duplication de blocs JS (édités par marqueurs `//__JS_*__` puis nettoyés au `sed`) : la
 vérification des doublons est essentielle.
 
