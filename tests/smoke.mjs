@@ -14,8 +14,11 @@
  *   9. Erreurs IA uniformes (P0-3) : action IA sans clé puis hors ligne
  *      → message clair + bouton « Réessayer » fonctionnel, jamais de
  *      spinner infini ni d'erreur console ;
- *  10. Export d'une sauvegarde puis ré-import (round-trip) ;
- *  11. Migration (P1-1) : importer une vieille sauvegarde sans schemaVersion
+ *  10. Accessibilité (P0-4) : role=dialog + libellé + focus trap + Échap sur
+ *      le modal, aria-current sur la nav, activation clavier (Entrée/Espace)
+ *      des cliquables non-<button>, aria-label des boutons icônes ;
+ *  11. Export d'une sauvegarde puis ré-import (round-trip) ;
+ *  12. Migration (P1-1) : importer une vieille sauvegarde sans schemaVersion
  *      (formats hérités) doit la migrer et tout restaurer sans perte.
  *
  * Usage :
@@ -191,7 +194,65 @@ try {
     `contenu : « ${medOut.textContent.trim().slice(0, 120)} »`);
   win.eval('_apiKey=""'); // restaure l'état sans clé pour la suite du parcours
 
-  /* ---------- 10 · Export / import ---------- */
+  /* ---------- 10 · Accessibilité (P0-4) ---------- */
+  const modalEl = doc.querySelector('#modal');
+  // a) Modal : rôle dialog, libellé tiré du titre, focus déplacé dedans
+  win.go('tasks');
+  const navBtnBefore = doc.querySelector('#nav .nav-item[data-id="tasks"]');
+  navBtnBefore.focus();
+  win.taskModal();
+  await sleep(120); // laisse le focus différé (90 ms) se poser sur #tTitle
+  check('Modal : role=dialog, aria-modal, libellé et focus à l\'intérieur',
+    modalEl.getAttribute('role') === 'dialog'
+    && modalEl.getAttribute('aria-modal') === 'true'
+    && modalEl.getAttribute('aria-label') === 'Nouvelle tâche'
+    && modalEl.contains(doc.activeElement));
+
+  // b) Piège à focus : Tab depuis le dernier reboucle au premier, Shift+Tab
+  //    depuis le premier va au dernier ; puis Échap ferme et rend le focus.
+  const focusables = [...modalEl.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])')];
+  const firstF = focusables[0], lastF = focusables[focusables.length - 1];
+  lastF.focus();
+  lastF.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+  const wrapped = doc.activeElement === firstF;
+  firstF.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+  const wrappedBack = doc.activeElement === lastF;
+  doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  check('Modal : piège à focus (Tab/Shift+Tab bouclent) et Échap rend le focus',
+    wrapped && wrappedBack
+    && !doc.querySelector('#overlay').classList.contains('show')
+    && doc.activeElement === navBtnBefore,
+    `wrapped=${wrapped} wrappedBack=${wrappedBack} focus=${doc.activeElement && doc.activeElement.dataset ? doc.activeElement.dataset.id : '?'}`);
+
+  // c) aria-current="page" unique sur la vue active (nav latérale + barre mobile)
+  win.go('dash');
+  const curNav = doc.querySelectorAll('#nav .nav-item[aria-current="page"]');
+  const curTab = doc.querySelectorAll('#mtabs .mtab[aria-current="page"]');
+  check('Nav : aria-current="page" unique et sur la vue active',
+    curNav.length === 1 && curNav[0].dataset.id === 'dash' && curTab.length === 1);
+
+  // d) Activation clavier d'un cliquable non-<button> : Entrée sur la case
+  //    à cocher (role=checkbox) bascule la tâche.
+  win.S.tasks.push({ id: 'a11y1', title: 'Tâche clavier', subject: '', cat: '', due: null, prio: 'm', done: false });
+  win.go('tasks');
+  const checkEl = doc.querySelector('#taskList .check');
+  const roleOk = checkEl.getAttribute('role') === 'checkbox' && checkEl.getAttribute('tabindex') === '0' && checkEl.getAttribute('aria-checked') === 'false';
+  checkEl.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  check('Clavier : Entrée sur la case (role=checkbox) bascule la tâche',
+    roleOk && win.S.tasks.find(t => t.id === 'a11y1')?.done === true);
+  win.delTask('a11y1');
+
+  // e) Boutons icônes : aria-label présents (corbeille de tâche, fermeture de modal)
+  win.S.tasks.push({ id: 'a11y2', title: 'Tâche libellée', subject: '', cat: '', due: null, prio: 'm', done: false });
+  win.go('tasks');
+  const trashOk = !!doc.querySelector('#taskList button[aria-label^="Supprimer la tâche"]');
+  win.taskModal();
+  const closeOk = doc.querySelector('#modal .btn.icon')?.getAttribute('aria-label') === 'Fermer';
+  doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  win.delTask('a11y2');
+  check('Boutons icônes : aria-label présents (Fermer, Supprimer…)', trashOk && closeOk);
+
+  /* ---------- 11 · Export / import ---------- */
   win.exportData();
   const blob = exportBlobs[exportBlobs.length - 1];
   let dump = null;
@@ -223,7 +284,7 @@ try {
     check('Import : données restaurées depuis la sauvegarde', false, 'sauté — export invalide');
   }
 
-  /* ---------- 11 · Migration d'une vieille sauvegarde (P1-1) ---------- */
+  /* ---------- 12 · Migration d'une vieille sauvegarde (P1-1) ---------- */
   // Sauvegarde d'avant le versionnage : pas de _schema, subjects en tableau
   // (ancien format), profile sans quiz, stage sans sheets.
   const oldSave = {

@@ -29,7 +29,7 @@
       <div class="brand-mark"><svg class="ic ic-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-6.5-4.2-8.8-8.2A4.6 4.6 0 0 1 12 6a4.6 4.6 0 0 1 8.8 5.8C18.5 15.8 12 20 12 20Z"/><path d="M8.5 12h2l1-2 1.5 4 1-2h1.5"/></svg></div>
       <div><div class="brand-name">Nursa<b>Flow</b></div><div class="brand-sub">Compagnon d'étude · Cégep</div></div>
     </div>
-    <nav id="nav"></nav>
+    <nav id="nav" aria-label="Navigation principale"></nav>
     <div class="nav-spacer"></div>
     <div class="side-streak">
       <div class="streak-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 3-1 4-1 6a3 3 0 0 0 5 2c1 2 1.5 3 1.5 5A5.5 5.5 0 0 1 6 16c0-3 2-4 3-7 .6-2 .5-4 3-6Z"/></svg></div>
@@ -59,9 +59,9 @@
   </button>
 </div>
 
-<nav class="mobile-tabs" id="mtabs"></nav>
-<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-<div class="toasts" id="toasts"></div>
+<nav class="mobile-tabs" id="mtabs" aria-label="Navigation rapide"></nav>
+<div class="overlay" id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true" tabindex="-1"></div></div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
 <script>
 @@NURSAFLOW:APP_JS@@

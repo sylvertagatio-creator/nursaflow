@@ -372,3 +372,7 @@ ul.bul{padding-left:18px;line-height:1.75;font-size:13.5px}
   .mtab.active{color:var(--blue)}
 }
 @media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.06ms!important}}
+
+/* A11y (P0-4) : focus clavier visible sur tout élément interactif */
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.check:focus-visible,.q-opt:focus-visible,.cal-ev:focus-visible,.fc:focus-visible{outline:2px solid var(--blue-d);outline-offset:2px}

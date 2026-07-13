@@ -393,6 +393,10 @@ ul.bul{padding-left:18px;line-height:1.75;font-size:13.5px}
   .mtab.active{color:var(--blue)}
 }
 @media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.06ms!important}}
+
+/* A11y (P0-4) : focus clavier visible sur tout élément interactif */
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.check:focus-visible,.q-opt:focus-visible,.cal-ev:focus-visible,.fc:focus-visible{outline:2px solid var(--blue-d);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -402,7 +406,7 @@ ul.bul{padding-left:18px;line-height:1.75;font-size:13.5px}
       <div class="brand-mark"><svg class="ic ic-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-6.5-4.2-8.8-8.2A4.6 4.6 0 0 1 12 6a4.6 4.6 0 0 1 8.8 5.8C18.5 15.8 12 20 12 20Z"/><path d="M8.5 12h2l1-2 1.5 4 1-2h1.5"/></svg></div>
       <div><div class="brand-name">Nursa<b>Flow</b></div><div class="brand-sub">Compagnon d'étude · Cégep</div></div>
     </div>
-    <nav id="nav"></nav>
+    <nav id="nav" aria-label="Navigation principale"></nav>
     <div class="nav-spacer"></div>
     <div class="side-streak">
       <div class="streak-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 3-1 4-1 6a3 3 0 0 0 5 2c1 2 1.5 3 1.5 5A5.5 5.5 0 0 1 6 16c0-3 2-4 3-7 .6-2 .5-4 3-6Z"/></svg></div>
@@ -432,9 +436,9 @@ ul.bul{padding-left:18px;line-height:1.75;font-size:13.5px}
   </button>
 </div>
 
-<nav class="mobile-tabs" id="mtabs"></nav>
-<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-<div class="toasts" id="toasts"></div>
+<nav class="mobile-tabs" id="mtabs" aria-label="Navigation rapide"></nav>
+<div class="overlay" id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true" tabindex="-1"></div></div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
 <script>
 /* ==================================================================
@@ -601,10 +605,42 @@ function toast(msg,type){
   $('#toasts').appendChild(t);
   setTimeout(()=>{t.style.opacity='0';t.style.transform='translateY(12px)';t.style.transition='.3s';setTimeout(()=>t.remove(),320);},2700);
 }
-function modal(html,wide){ $('#modal').className='modal'+(wide?' wide':''); $('#modal').innerHTML=html; $('#overlay').classList.add('show'); }
-function closeModal(){ $('#overlay').classList.remove('show'); }
+/* Modal accessible (P0-4) : role="dialog" (posé dans le squelette), libellé
+   depuis le titre, focus déplacé dedans à l'ouverture, piégé (Tab boucle)
+   tant que le modal est ouvert, puis rendu à l'élément déclencheur. */
+const FOCUSABLE='button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+let _modalPrevFocus=null;
+function modal(html,wide){
+  const m=$('#modal'); m.className='modal'+(wide?' wide':''); m.innerHTML=html;
+  const h=m.querySelector('h1,h2,h3'); m.setAttribute('aria-label',h?h.textContent.trim():'Fenêtre de dialogue');
+  if(!$('#overlay').classList.contains('show')) _modalPrevFocus=document.activeElement;
+  $('#overlay').classList.add('show');
+  (m.querySelector(FOCUSABLE)||m).focus();
+}
+function closeModal(){
+  const ov=$('#overlay'); if(!ov.classList.contains('show')) return;
+  ov.classList.remove('show');
+  if(_modalPrevFocus&&document.contains(_modalPrevFocus)){ try{_modalPrevFocus.focus();}catch(e){} }
+  _modalPrevFocus=null;
+}
 $('#overlay').addEventListener('click',e=>{ if(e.target.id==='overlay') closeModal(); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ closeModal(); return; }
+  if(e.key==='Tab'&&$('#overlay').classList.contains('show')){
+    const m=$('#modal'), els=[...m.querySelectorAll(FOCUSABLE)];
+    if(!els.length){ e.preventDefault(); m.focus(); return; }
+    const first=els[0], last=els[els.length-1], a=document.activeElement;
+    if(e.shiftKey&&(a===first||a===m||!m.contains(a))){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey&&(a===last||!m.contains(a))){ e.preventDefault(); first.focus(); }
+  }
+});
+/* Activation clavier des cliquables non-<button> (rôles button/checkbox posés
+   sur .check, .q-opt, .cal-ev, .fc, …) : Entrée ou Espace déclenche le clic. */
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ') return;
+  const t=e.target;
+  if(t instanceof Element&&t.matches('[role="button"]:not(button):not(a),[role="checkbox"]:not(input)')){ e.preventDefault(); t.click(); }
+});
 function copyText(txt){ navigator.clipboard?.writeText(txt).then(()=>toast('Copié','ok'),()=>toast('Copie impossible','err')); }
 const emptyBox=(icon,h,p)=>`<div class="empty"><div class="eic">${ic(icon)}</div><h3>${h}</h3><p>${p}</p></div>`;
 
@@ -724,6 +760,7 @@ function buildNav(){
   VIEWS.forEach(v=>{
     if(v.sec){ const l=document.createElement('div'); l.className='nav-label'; l.textContent=v.sec; nav.appendChild(l); return; }
     const b=document.createElement('button'); b.className='nav-item'+(v.id===current?' active':''); b.dataset.id=v.id;
+    if(v.id===current)b.setAttribute('aria-current','page');
     let badge='';
     if(v.id==='cards'){ const d=dueCards().length; if(d) badge=`<span class="nav-badge">${d}</span>`; }
     if(v.id==='tasks'){ const d=S.tasks.filter(t=>!t.done).length; if(d) badge=`<span class="nav-badge">${d}</span>`; }
@@ -734,19 +771,20 @@ function buildNav(){
   ['dash','quiz','cards','tools'].forEach(id=>{
     const v=VIEWS.find(x=>x.id===id);
     const b=document.createElement('button'); b.className='mtab'+(id===current?' active':'');
+    if(id===current)b.setAttribute('aria-current','page');
     b.innerHTML=ic(v.icon)+`<span>${v.label.split(' ')[0]}</span>`; b.onclick=()=>go(id); mt.appendChild(b);
   });
   const more=document.createElement('button'); more.className='mtab';
   more.innerHTML=ic('layers')+`<span>Menu</span>`; more.onclick=openMobileMenu; mt.appendChild(more);
 }
 function openMobileMenu(){
-  let html=`<div class="modal-head"><h2>Navigation</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div><div class="modal-body" style="padding:12px">`;
+  let html=`<div class="modal-head"><h2>Navigation</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div><div class="modal-body" style="padding:12px">`;
   VIEWS.forEach(v=>{
     if(v.sec){html+=`<div class="nav-label" style="padding:12px 8px 5px">${v.sec}</div>`;return;}
     let badge='';
     if(v.id==='cards'){const d=dueCards().length;if(d)badge=`<span class="nav-badge" style="margin-left:auto">${d}</span>`;}
     if(v.id==='tasks'){const d=S.tasks.filter(t=>!t.done).length;if(d)badge=`<span class="nav-badge" style="margin-left:auto">${d}</span>`;}
-    html+=`<button class="nav-item ${v.id===current?'active':''}" style="margin-bottom:2px" onclick="closeModal();go('${v.id}')">${ic(v.icon)}<span>${v.label}</span>${badge}</button>`;
+    html+=`<button class="nav-item ${v.id===current?'active':''}" ${v.id===current?'aria-current="page" ':''}style="margin-bottom:2px" onclick="closeModal();go('${v.id}')">${ic(v.icon)}<span>${v.label}</span>${badge}</button>`;
   });
   html+=`</div>`;
   modal(html);
@@ -857,12 +895,12 @@ function renderTaskList(){
 }
 function taskRow(t){const s=SUBJECTS[t.subject];return `<div class="li ${t.done?'done':''}">
   <div class="prio ${t.prio}"></div>
-  <div class="check ${t.done?'on':''}" onclick="toggleTask('${t.id}')">${ic('check')}</div>
+  <div class="check ${t.done?'on':''}" role="checkbox" tabindex="0" aria-checked="${!!t.done}" aria-label="Marquer « ${esc(t.title)} » comme ${t.done?'à faire':'faite'}" onclick="toggleTask('${t.id}')">${ic('check')}</div>
   <div style="flex:1"><div class="li-title">${esc(t.title)}</div>
     <div class="li-meta">${s?`<span class="chip" style="background:${s.hex}16;color:${s.hex}">${subjIcon(t.subject,'ic-sm')} ${s.name}</span>`:''}${t.cat?`<span>${esc(t.cat)}</span>`:''}${t.due?`<span style="color:${!t.done&&daysUntil(t.due)<0?'var(--pink-d)':daysUntil(t.due)===0?'var(--yellow-d)':'var(--ink-3)'}">${ic('clock','ic-sm')} ${fmtDate(t.due)}</span>`:''}</div></div>
-  <button class="btn icon ghost" onclick="delTask('${t.id}')" title="Supprimer">${ic('trash')}</button></div>`;}
+  <button class="btn icon ghost" onclick="delTask('${t.id}')" title="Supprimer" aria-label="Supprimer la tâche ${esc(t.title)}">${ic('trash')}</button></div>`;}
 function taskModal(){
-  modal(`<div class="modal-head"><h2>Nouvelle tâche</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div>
+  modal(`<div class="modal-head"><h2>Nouvelle tâche</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div>
   <div class="modal-body">
     <label class="field"><span>Titre</span><input class="inp" id="tTitle" placeholder="Ex. Lire le chapitre 12 — Insuffisance cardiaque"></label>
     <div class="row" style="gap:12px"><label class="field" style="flex:1"><span>Matière</span><select class="sel" id="tSubj"><option value="">—</option>${CORE_SUBJECTS.map(id=>`<option value="${id}">${SUBJECTS[id].name}</option>`).join('')}</select></label>
@@ -886,7 +924,7 @@ function renderCal(){
   $('#main').innerHTML=topbar('Calendrier','Cours, stages, labos et examens',acts)+`
   <div class="view">
     <div class="row between mb wrap" style="gap:10px">
-      <div class="row" style="gap:6px"><button class="btn icon" onclick="weekOffset--;renderCal()">${ic('chevL')}</button><button class="btn sm" onclick="weekOffset=0;renderCal()">Cette semaine</button><button class="btn icon" onclick="weekOffset++;renderCal()">${ic('chevR')}</button></div>
+      <div class="row" style="gap:6px"><button class="btn icon" aria-label="Semaine précédente" onclick="weekOffset--;renderCal()">${ic('chevL')}</button><button class="btn sm" onclick="weekOffset=0;renderCal()">Cette semaine</button><button class="btn icon" aria-label="Semaine suivante" onclick="weekOffset++;renderCal()">${ic('chevR')}</button></div>
       <div class="row wrap" style="gap:6px">${Object.entries(EVTYPES).map(([k,v])=>`<span class="chip" style="background:${v.hex}16;color:${v.hex}"><span class="dot" style="background:${v.hex}"></span>${v.l}</span>`).join('')}</div>
     </div>
     <div class="cal" id="calGrid"></div>
@@ -896,13 +934,13 @@ function renderCal(){
   for(let i=0;i<7;i++){const d=new Date(base);d.setDate(base.getDate()+i);const iso=new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
     const evs=S.events.filter(e=>e.date===iso).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
     html+=`<div class="cal-day ${iso===todayISO()?'today':''}"><div class="row between"><span class="cal-dname">${dn[i]}</span><span class="cal-dnum">${d.getDate()}</span></div>
-      ${evs.map(e=>`<div class="cal-ev" style="background:${EVTYPES[e.type].hex}" onclick="evModal('${e.id}')">${e.time?e.time+' ':''}${esc(e.title)}</div>`).join('')}
+      ${evs.map(e=>`<div class="cal-ev" role="button" tabindex="0" aria-label="Modifier l'événement ${esc(e.title)}" style="background:${EVTYPES[e.type].hex}" onclick="evModal('${e.id}')">${e.time?e.time+' ':''}${esc(e.title)}</div>`).join('')}
       <button class="btn ghost sm" style="margin-top:auto;color:var(--ink-4);padding:3px;font-size:11px" onclick="evModal(null,'${iso}')">+ ajouter</button></div>`;}
   grid.innerHTML=html;
 }
 function evModal(id,presetDate){
   const e=id?S.events.find(x=>x.id===id):null;
-  modal(`<div class="modal-head"><h2>${e?'Modifier':'Nouvel'} événement</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div>
+  modal(`<div class="modal-head"><h2>${e?'Modifier':'Nouvel'} événement</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div>
   <div class="modal-body">
     <label class="field"><span>Titre</span><input class="inp" id="eTitle" value="${e?esc(e.title):''}" placeholder="Ex. Examen mi-session — Pharmaco"></label>
     <div class="row" style="gap:12px"><label class="field" style="flex:1"><span>Type</span><select class="sel" id="eType">${Object.entries(EVTYPES).map(([k,v])=>`<option value="${k}" ${e&&e.type===k?'selected':''}>${v.l}</option>`).join('')}</select></label>
@@ -936,7 +974,7 @@ function renderSubjects(){
 }
 function openSubject(id){
   const s=SUBJECTS[id];const sd=S.subjects[id]||{objectives:[],notes:''};
-  modal(`<div class="modal-head"><div style="width:38px;height:38px;border-radius:11px;background:${s.hex}18;color:${s.hex};display:grid;place-items:center">${subjIcon(id)}</div><h2>${s.name}</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div>
+  modal(`<div class="modal-head"><div style="width:38px;height:38px;border-radius:11px;background:${s.hex}18;color:${s.hex};display:grid;place-items:center">${subjIcon(id)}</div><h2>${s.name}</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div>
   <div class="modal-body">
     <div class="sec-title">${ic('target','ic-sm')} Objectifs d'apprentissage / compétences</div>
     <div id="objList">${objList(id)}</div>
@@ -952,9 +990,9 @@ function openSubject(id){
   </div>`,true);
 }
 function objList(id){const o=S.subjects[id].objectives;return o.length?o.map(x=>`
-  <div class="li" style="padding:8px 4px"><div class="check ${x.done?'on':''}" onclick="toggleObj('${id}','${x.id}')">${ic('check')}</div>
+  <div class="li" style="padding:8px 4px"><div class="check ${x.done?'on':''}" role="checkbox" tabindex="0" aria-checked="${!!x.done}" aria-label="Objectif : ${esc(x.text)}" onclick="toggleObj('${id}','${x.id}')">${ic('check')}</div>
     <div style="flex:1" class="li-title ${x.done?'done':''}">${esc(x.text)}</div>
-    <button class="btn icon ghost" onclick="delObj('${id}','${x.id}')">${ic('trash')}</button></div>`).join(''):`<p class="muted" style="font-size:13px">Aucun objectif pour l'instant. Ajoute-en pour suivre ta maîtrise.</p>`;}
+    <button class="btn icon ghost" aria-label="Supprimer l'objectif" onclick="delObj('${id}','${x.id}')">${ic('trash')}</button></div>`).join(''):`<p class="muted" style="font-size:13px">Aucun objectif pour l'instant. Ajoute-en pour suivre ta maîtrise.</p>`;}
 function addObj(id){const i=$('#objNew');const t=i.value.trim();if(!t)return;S.subjects[id].objectives.push({id:uid(),text:t,done:false});save('subjects');i.value='';$('#objList').innerHTML=objList(id);}
 function toggleObj(id,oid){const o=S.subjects[id].objectives.find(x=>x.id===oid);o.done=!o.done;if(o.done)bumpStreak();save('subjects');$('#objList').innerHTML=objList(id);}
 function delObj(id,oid){S.subjects[id].objectives=S.subjects[id].objectives.filter(x=>x.id!==oid);save('subjects');$('#objList').innerHTML=objList(id);}
@@ -1030,10 +1068,10 @@ function renderCards(){
     <div class="card pad mt"><div class="sec-title">${ic('cards','ic-sm')} Toutes les cartes</div>
       ${S.cards.length?S.cards.map(c=>`<div class="li"><span class="dot" style="background:${SUBJECTS[c.subject]?.hex||'#888'};width:10px;height:10px"></span>
         <div style="flex:1"><div class="li-title" style="font-size:14px">${esc(c.recto)}</div><div class="li-meta">${esc(c.verso.slice(0,64))}${c.verso.length>64?'…':''}</div></div>
-        <button class="btn icon ghost" onclick="S.cards=S.cards.filter(x=>x.id!=='${c.id}');save('cards');renderCards();buildNav()">${ic('trash')}</button></div>`).join(''):`<p class="muted" style="font-size:13px">Aucune carte. Crées-en ou génère-les depuis un résumé PPT.</p>`}</div>
+        <button class="btn icon ghost" aria-label="Supprimer la carte" onclick="S.cards=S.cards.filter(x=>x.id!=='${c.id}');save('cards');renderCards();buildNav()">${ic('trash')}</button></div>`).join(''):`<p class="muted" style="font-size:13px">Aucune carte. Crées-en ou génère-les depuis un résumé PPT.</p>`}</div>
   </div>`;
 }
-function cardModal(){modal(`<div class="modal-head"><h2>Nouvelle flashcard</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div>
+function cardModal(){modal(`<div class="modal-head"><h2>Nouvelle flashcard</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div>
   <div class="modal-body"><label class="field"><span>Matière</span><select class="sel" id="cSubj">${CORE_SUBJECTS.map(id=>`<option value="${id}">${SUBJECTS[id].name}</option>`).join('')}</select></label>
     <label class="field"><span>Recto (question)</span><textarea class="ta" id="cR" placeholder="Ex. Quels sont les signes de l'hypoglycémie ?"></textarea></label>
     <label class="field"><span>Verso (réponse)</span><textarea class="ta" id="cV" placeholder="Ex. Tremblements, diaphorèse, tachycardie, confusion…"></textarea></label></div>
@@ -1045,7 +1083,7 @@ function renderReview(){
   if(reviewIdx>=reviewQueue.length){host.innerHTML=`<div class="empty"><div class="eic" style="background:var(--green-t);color:var(--green)">${ic('check')}</div><h3>Révision terminée !</h3><p>Bravo, tu as passé toutes tes cartes. Friday est fier de toi.</p><button class="btn primary mt" onclick="renderCards()">Retour</button></div>`;bumpStreak();friday.say('celebrate');buildNav();return;}
   const c=reviewQueue[reviewIdx];const s=SUBJECTS[c.subject];
   host.innerHTML=`<div class="row between mb"><span class="chip" style="background:${s.hex}16;color:${s.hex}">${subjIcon(c.subject,'ic-sm')} ${s.name}</span><span class="muted" style="font-weight:600">${reviewIdx+1} / ${reviewQueue.length}</span></div>
-    <div class="fc ${cardFlipped?'flip':''}" id="fcard" onclick="cardFlipped=!cardFlipped;this.classList.toggle('flip');document.getElementById('fcHint').textContent=cardFlipped?'Comment as-tu répondu ?':'Touche la carte pour révéler la réponse'">
+    <div class="fc ${cardFlipped?'flip':''}" id="fcard" role="button" tabindex="0" aria-label="${cardFlipped?'Retourner la carte':'Révéler la réponse'}" onclick="cardFlipped=!cardFlipped;this.classList.toggle('flip');document.getElementById('fcHint').textContent=cardFlipped?'Comment as-tu répondu ?':'Touche la carte pour révéler la réponse'">
       <div class="fc-inner"><div class="fc-face fc-front"><div class="lbl">Question</div><div class="txt">${esc(c.recto)}</div></div>
         <div class="fc-face fc-back"><div class="lbl">Réponse</div><div class="txt">${esc(c.verso)}</div></div></div></div>
     <div class="fc-hint" id="fcHint">${cardFlipped?'Comment as-tu répondu ?':'Touche la carte pour révéler la réponse'}</div>
@@ -1085,7 +1123,7 @@ function savedSummaries(){return S.summaries.length?S.summaries.map(s=>{const su
   <div class="li"><span style="color:${su?su.hex:'#888'}">${su?subjIcon(s.subject):ic('fileText')}</span>
     <div style="flex:1"><div class="li-title">${esc(s.title)}</div><div class="li-meta">${su?su.name:''} · ${s.date}</div></div>
     <button class="btn sm" onclick="viewSummary('${s.id}')">Ouvrir</button>
-    <button class="btn icon ghost" onclick="S.summaries=S.summaries.filter(x=>x.id!=='${s.id}');save('summaries');renderPPT()">${ic('trash')}</button></div>`;}).join(''):`<p class="muted" style="font-size:13px">Aucun résumé sauvegardé.</p>`;}
+    <button class="btn icon ghost" aria-label="Supprimer le résumé" onclick="S.summaries=S.summaries.filter(x=>x.id!=='${s.id}');save('summaries');renderPPT()">${ic('trash')}</button></div>`;}).join(''):`<p class="muted" style="font-size:13px">Aucun résumé sauvegardé.</p>`;}
 async function loadPptx(input){
   const f=input.files[0];if(!f)return;
   try{ toast('Extraction du texte…');
@@ -1116,7 +1154,7 @@ async function doSummary(){
 }
 function saveSummary(data){S.summaries.unshift({id:uid(),date:todayISO(),subject:data.subject,title:data.titre||'Résumé',data});save('summaries');if($('#pptSaved'))$('#pptSaved').innerHTML=savedSummaries();bumpStreak();toast('Résumé sauvegardé','ok');}
 function viewSummary(id){const s=S.summaries.find(x=>x.id===id);const r=s.data;
-  modal(`<div class="modal-head"><h2>${esc(r.titre||s.title)}</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div>
+  modal(`<div class="modal-head"><h2>${esc(r.titre||s.title)}</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div>
   <div class="modal-body"><div class="chip yellow mb">${ic('bulb','ic-sm')} ${esc(r.a_retenir||'')}</div>
     <h4 style="margin:10px 0 6px">Concepts clés</h4><ul class="bul">${(r.concepts||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
     <h4 style="margin:14px 0 6px">Définitions</h4>${(r.definitions||[]).map(d=>`<div class="mb"><b>${esc(d.terme)} :</b> ${esc(d.def)}</div>`).join('')}
@@ -1137,7 +1175,7 @@ function renderMeds(){
 }
 function savedMeds(){return `<div class="sec-title">${ic('cards','ic-sm')} Fiches sauvegardées</div>`+S.meds.map(m=>`
   <div class="li"><span style="color:var(--violet)">${ic('pill')}</span><div style="flex:1"><div class="li-title">${esc(m.patho)}</div><div class="li-meta">${m.items.length} médicaments · ${SUBJECTS[m.subject]?.name||''} · ${m.date}</div></div>
-    <button class="btn sm" onclick="viewMeds('${m.id}')">Ouvrir</button><button class="btn icon ghost" onclick="S.meds=S.meds.filter(x=>x.id!=='${m.id}');save('meds');renderMeds()">${ic('trash')}</button></div>`).join('');}
+    <button class="btn sm" onclick="viewMeds('${m.id}')">Ouvrir</button><button class="btn icon ghost" aria-label="Supprimer la fiche" onclick="S.meds=S.meds.filter(x=>x.id!=='${m.id}');save('meds');renderMeds()">${ic('trash')}</button></div>`).join('');}
 async function doMeds(){
   const patho=$('#medPatho').value.trim();if(!patho)return toast('Entre une pathologie','err');
   const subj=$('#medSubj').value;const btn=$('#medGo');if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span> Génération…';}
@@ -1155,7 +1193,7 @@ const MEDKEYS={mecanisme:'Mécanisme',indications:'Indication',effets_secondaire
 function medCards(items,patho){return `<div class="sec-title">${ic('pill','ic-sm')} ${esc(patho)} — ${items.length} médicaments</div><div class="grid g-2">`+items.map(medCardHTML).join('')+`</div>`;}
 function medCardHTML(m){return `<div class="med"><div class="med-head"><div class="pill">${ic('pill')}</div><div><div class="med-name">${esc(m.nom)}</div><div class="chip violet" style="margin-top:3px">${esc(m.classe)}</div></div></div>
   <div class="med-body">${Object.keys(MEDKEYS).map(k=>m[k]?`<div class="med-row"><div class="k">${MEDKEYS[k]}</div><div class="v">${esc(m[k])}</div></div>`:'').join('')}</div></div>`;}
-function viewMeds(id){const m=S.meds.find(x=>x.id===id);modal(`<div class="modal-head"><h2>${ic('pill')} ${esc(m.patho)}</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div><div class="modal-body">${m.items.map(medCardHTML).join('<div style="height:14px"></div>')}</div>`,true);}
+function viewMeds(id){const m=S.meds.find(x=>x.id===id);modal(`<div class="modal-head"><h2>${ic('pill')} ${esc(m.patho)}</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div><div class="modal-body">${m.items.map(medCardHTML).join('<div style="height:14px"></div>')}</div>`,true);}
 
 /* ---------- Cas cliniques intégrateurs (multi-matières, IA) ---------- */
 let currentCase=null;
@@ -1175,7 +1213,7 @@ function renderCases(){
 }
 function savedCases(){return `<div class="sec-title">${ic('cards','ic-sm')} Cas sauvegardés</div>`+S.cases.map(c=>`
   <div class="li"><span style="color:var(--indigo)">${ic('clipboard')}</span><div style="flex:1"><div class="li-title">${esc(c.titre)}</div><div class="li-meta">${(c.subjects||[]).map(s=>SUBJECTS[s]?.name).filter(Boolean).join(' · ')} · ${c.date}</div></div>
-    <button class="btn sm" onclick="viewCase('${c.id}')">Ouvrir</button><button class="btn icon ghost" onclick="S.cases=S.cases.filter(x=>x.id!=='${c.id}');save('cases');renderCases()">${ic('trash')}</button></div>`).join('');}
+    <button class="btn sm" onclick="viewCase('${c.id}')">Ouvrir</button><button class="btn icon ghost" aria-label="Supprimer le cas" onclick="S.cases=S.cases.filter(x=>x.id!=='${c.id}');save('cases');renderCases()">${ic('trash')}</button></div>`).join('');}
 async function doCase(){
   const subs=[...document.querySelectorAll('.caseSubj:checked')].map(c=>c.value);
   if(subs.length<1)return toast('Choisis au moins une matière','err');
@@ -1197,7 +1235,7 @@ function renderCaseView(r,inModal){
     ${(r.questions||[]).map((q,i)=>`<div class="q-card"><div class="q-num">Question ${i+1}</div><div style="font-weight:600;margin:8px 0;font-size:15px">${esc(q.question)}</div>
       <details style="cursor:pointer"><summary style="color:var(--blue-d);font-weight:600;font-size:13.5px">Voir la piste de réponse</summary><div class="q-explain" style="margin-top:10px"><b>Jugement clinique attendu :</b> ${esc(q.piste)}</div></details></div>`).join('')}
     <div class="anno role"><h4>${ic('bulb','ic-sm')} Débreffage intégrateur</h4><p>${esc(r.debreffage)}</p></div>`;
-  if(inModal){modal(`<div class="modal-head"><h2>Cas clinique</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div><div class="modal-body">${body}</div>`,true);}
+  if(inModal){modal(`<div class="modal-head"><h2>Cas clinique</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div><div class="modal-body">${body}</div>`,true);}
   else{$('#caseOut').innerHTML=`<div class="card pad">${body}</div><div class="hr"></div>${savedCases()}`;}
 }
 function viewCase(id){const c=S.cases.find(x=>x.id===id);renderCaseView(c.data,true);}
@@ -1325,7 +1363,7 @@ function quizQ(qq,i){
     ${qq.situation?`<div class="situ">${esc(qq.situation)}</div>`:''}<div style="font-weight:600;margin:10px 0;font-size:15px">${esc(qq.question)}</div>`;
   if(qq.type==='ordre'){
     const arr=qq._shuffled||[];
-    return head+arr.map((it,pos)=>`<div class="ord-item"><span class="num">${pos+1}</span><span style="flex:1">${esc(it.t)}${quizRevealed?` <b style="color:${it.i===pos?'var(--green-d)':'var(--pink-d)'}">(rang correct : ${it.i+1})</b>`:''}</span>${quizRevealed?'':`<span class="ord-btns"><button class="btn icon sm" onclick="ordMove(${i},${pos},-1)" ${pos===0?'disabled':''}>${ic('up','ic-sm')}</button><button class="btn icon sm" onclick="ordMove(${i},${pos},1)" ${pos===arr.length-1?'disabled':''}>${ic('down','ic-sm')}</button></span>`}</div>`).join('')
+    return head+arr.map((it,pos)=>`<div class="ord-item"><span class="num">${pos+1}</span><span style="flex:1">${esc(it.t)}${quizRevealed?` <b style="color:${it.i===pos?'var(--green-d)':'var(--pink-d)'}">(rang correct : ${it.i+1})</b>`:''}</span>${quizRevealed?'':`<span class="ord-btns"><button class="btn icon sm" aria-label="Monter l'étape" onclick="ordMove(${i},${pos},-1)" ${pos===0?'disabled':''}>${ic('up','ic-sm')}</button><button class="btn icon sm" aria-label="Descendre l'étape" onclick="ordMove(${i},${pos},1)" ${pos===arr.length-1?'disabled':''}>${ic('down','ic-sm')}</button></span>`}</div>`).join('')
       +(quizRevealed?`<div class="q-explain"><b>Explication :</b> ${esc(qq.explication)}</div>`:'')+`</div>`;
   }
   const sel=quizAns[i];
@@ -1338,7 +1376,7 @@ function quizQ(qq,i){
     }else{
       if(quizRevealed){if(oi===qq.reponse)cls='correct';else if(sel===oi)cls='wrong';}else if(sel===oi)cls='sel';
     }
-    return `<div class="q-opt ${cls}" onclick="${quizRevealed?'':(qq.type==='sata'?`toggleSata(${i},${oi})`:`pickQcm(${i},${oi})`)}"><span class="key">${'ABCDE'[oi]||'?'}</span><span>${esc(o)}</span></div>`;
+    return `<div class="q-opt ${cls}" ${quizRevealed?'':'role="button" tabindex="0" '}onclick="${quizRevealed?'':(qq.type==='sata'?`toggleSata(${i},${oi})`:`pickQcm(${i},${oi})`)}"><span class="key">${'ABCDE'[oi]||'?'}</span><span>${esc(o)}</span></div>`;
   }).join('');
   return head+opts+(quizRevealed?`<div class="q-explain"><b>Explication :</b> ${esc(qq.explication)}</div>`:'')+`</div>`;
 }
@@ -1355,7 +1393,7 @@ function revealQuiz(){quizRevealed=true;const q=currentQuiz.questions||[];const 
   bumpStreak();renderQuizRun();friday.say(sc/q.length>=0.7?'celebrate':'encourage');}
 function studyPlan(){
   const ranked=CORE_SUBJECTS.map(id=>({id,m:quizMastery(id)})).filter(x=>x.m!=null).sort((a,b)=>a.m-b.m);
-  modal(`<div class="modal-head"><h2>${ic('target')} Plan d'étude personnalisé</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div>
+  modal(`<div class="modal-head"><h2>${ic('target')} Plan d'étude personnalisé</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div>
   <div class="modal-body">${ranked.length?`<p class="muted" style="font-size:13.5px;margin-bottom:14px">Basé sur tes résultats de quiz — commence par le haut de la liste.</p>${ranked.map((r,idx)=>{const s=SUBJECTS[r.id];const lvl=r.m>=70?'Consolidation':r.m>=50?'À renforcer':'Priorité haute';return `<div class="li"><span style="font-family:var(--f-disp);font-weight:800;color:var(--ink-4);width:22px">${idx+1}</span><div style="width:32px;height:32px;border-radius:9px;background:${s.hex}16;color:${s.hex};display:grid;place-items:center;flex:none">${subjIcon(r.id)}</div><div style="flex:1"><div class="li-title" style="font-size:14px">${s.name} — ${r.m}%</div><div class="li-meta">${lvl}</div></div><button class="btn sm" onclick="closeModal();go('quiz');setTimeout(()=>{var e=document.getElementById('qSubj');if(e)e.value='${r.id}'},160)">S'exercer</button></div>`;}).join('')}`:`<p>Fais quelques quiz pour générer ton plan d'étude.</p>`}</div>`);
 }
 
@@ -1377,11 +1415,11 @@ function renderStageBody(){
   const b=$('#stageBody');
   if(stageTab==='skills'){
     b.innerHTML=`<div class="card pad"><div class="row between mb"><div class="sec-title" style="margin:0">${ic('check','ic-sm')} Checklist des gestes techniques</div><button class="btn sm" onclick="addSkill()">${ic('plus')} Geste</button></div>
-      ${S.stage.skills.map(s=>`<div class="li"><div class="check ${s.done?'on':''}" onclick="toggleSkill('${s.id}')">${ic('check')}</div><div style="flex:1"><div class="li-title ${s.done?'done':''}" style="font-size:14px">${esc(s.label)}</div>${s.done&&s.date?`<div class="li-meta">Pratiqué le ${fmtDate(s.date)}</div>`:''}</div><button class="btn icon ghost" onclick="delSkill('${s.id}')">${ic('trash')}</button></div>`).join('')}</div>`;
+      ${S.stage.skills.map(s=>`<div class="li"><div class="check ${s.done?'on':''}" role="checkbox" tabindex="0" aria-checked="${!!s.done}" aria-label="Technique : ${esc(s.label)}" onclick="toggleSkill('${s.id}')">${ic('check')}</div><div style="flex:1"><div class="li-title ${s.done?'done':''}" style="font-size:14px">${esc(s.label)}</div>${s.done&&s.date?`<div class="li-meta">Pratiqué le ${fmtDate(s.date)}</div>`:''}</div><button class="btn icon ghost" aria-label="Supprimer la technique" onclick="delSkill('${s.id}')">${ic('trash')}</button></div>`).join('')}</div>`;
   }else if(stageTab==='journal'){
     b.innerHTML=`<div class="card pad"><div class="row between mb"><div class="sec-title" style="margin:0">${ic('clipboard','ic-sm')} Carnet de raisonnement clinique</div><button class="btn sm primary" onclick="journalModal()">${ic('plus')} Entrée</button></div>
       <p class="muted" style="font-size:13px;margin-bottom:12px">Le « pourquoi » derrière chaque soin, pas seulement le « comment ».</p>
-      ${S.stage.journal.length?S.stage.journal.map(j=>`<div class="q-card"><div class="row between"><b style="font-size:14px">${esc(j.service||'Stage')} · ${fmtDate(j.date)}</b><button class="btn icon ghost sm" onclick="S.stage.journal=S.stage.journal.filter(x=>x.id!=='${j.id}');save('stage');renderStage()">${ic('trash')}</button></div>
+      ${S.stage.journal.length?S.stage.journal.map(j=>`<div class="q-card"><div class="row between"><b style="font-size:14px">${esc(j.service||'Stage')} · ${fmtDate(j.date)}</b><button class="btn icon ghost sm" aria-label="Supprimer l'entrée" onclick="S.stage.journal=S.stage.journal.filter(x=>x.id!=='${j.id}');save('stage');renderStage()">${ic('trash')}</button></div>
         <div style="margin-top:8px;font-size:13.5px"><b>Situation :</b> ${esc(j.situation)}</div><div class="q-explain" style="margin-top:8px"><b>Raisonnement :</b> ${esc(j.reasoning)}</div></div>`).join(''):emptyBox('clipboard','Aucune entrée','Note un soin observé ou posé et le raisonnement clinique derrière.')}</div>`;
   }else if(stageTab==='hours'){
     b.innerHTML=`<div class="card pad" style="max-width:420px"><div class="sec-title">${ic('clock','ic-sm')} Heures de stage</div>
@@ -1400,7 +1438,7 @@ function addSkill(){const l=prompt('Nom du geste technique :');if(l&&l.trim()){S
 function toggleSkill(id){const s=S.stage.skills.find(x=>x.id===id);s.done=!s.done;s.date=s.done?todayISO():null;if(s.done)bumpStreak();save('stage');renderStageBody();}
 function delSkill(id){S.stage.skills=S.stage.skills.filter(x=>x.id!==id);save('stage');renderStage();}
 function addHours(){const h=parseFloat($('#hAdd').value);if(!h||h<=0)return toast('Entre un nombre d\'heures valide','err');S.profile.stageHours=(S.profile.stageHours||0)+h;save('profile');bumpStreak();renderStage();toast(h+' h ajoutées','ok');}
-function journalModal(){modal(`<div class="modal-head"><h2>Nouvelle entrée de raisonnement</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div>
+function journalModal(){modal(`<div class="modal-head"><h2>Nouvelle entrée de raisonnement</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div>
   <div class="modal-body"><div class="row" style="gap:12px"><label class="field" style="flex:1"><span>Service</span><input class="inp" id="jSvc" placeholder="Ex. Médecine"></label><label class="field" style="flex:1"><span>Date</span><input class="inp" type="date" id="jDate" value="${todayISO()}"></label></div>
     <label class="field"><span>Situation clinique</span><textarea class="ta" id="jSitu" placeholder="Ex. Patient de 72 ans, dyspnée, SpO₂ 88 %…"></textarea></label>
     <label class="field"><span>Raisonnement (le « pourquoi »)</span><textarea class="ta" id="jReason" placeholder="Pourquoi cette intervention ? Quel jugement clinique ?"></textarea></label></div>
@@ -1418,7 +1456,7 @@ async function doServiceSheet(){
   btn.disabled=false;btn.innerHTML=ic('spark')+' Générer la fiche de préparation';
 }
 function sheetHTML(s){const list=(t,arr,icn)=>arr&&arr.length?`<div style="margin-top:10px"><div class="row" style="gap:6px;color:var(--ink-2);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${ic(icn,'ic-sm')} ${t}</div><ul class="bul" style="font-size:13.5px">${arr.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
-  return `<div class="card pad mb"><div class="row between"><h3 class="row" style="gap:8px">${ic('steth')} ${esc(s.service)}</h3><button class="btn icon ghost sm" onclick="S.stage.sheets=S.stage.sheets.filter(x=>x.id!=='${s.id}');save('stage');renderStage()">${ic('trash')}</button></div>
+  return `<div class="card pad mb"><div class="row between"><h3 class="row" style="gap:8px">${ic('steth')} ${esc(s.service)}</h3><button class="btn icon ghost sm" aria-label="Supprimer la fiche de service" onclick="S.stage.sheets=S.stage.sheets.filter(x=>x.id!=='${s.id}');save('stage');renderStage()">${ic('trash')}</button></div>
     <div class="anno" style="margin-top:10px"><p><b>Clientèle :</b> ${esc(s.clientele)}</p></div>
     ${list('Pathologies fréquentes',s.pathologies,'heart')}${list('Médicaments courants',s.medicaments,'pill')}${list('Priorités de surveillance',s.surveillances,'alert')}${list('Gestes fréquents',s.gestes,'syringe')}
     ${s.conseil?`<div class="anno role" style="margin-top:10px"><h4>${ic('bulb','ic-sm')} Conseil</h4><p>${esc(s.conseil)}</p></div>`:''}</div>`;}
@@ -1691,7 +1729,7 @@ function drawSchema(){
     <div class="schema-wrap"><svg class="schema" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${lines}${heads}${nodes}</svg></div></div>`;
 }
 function schemaNode(k,ni){const nd=currentSchema.cols[k].nodes[ni];const ct=currentSchema.cols[k].title;
-  modal(`<div class="modal-head"><h2>${esc(nd.label)}</h2><button class="btn icon ghost" onclick="closeModal()">${ic('x')}</button></div><div class="modal-body"><div class="chip violet mb">${esc(ct)}</div><p style="font-size:14.5px;line-height:1.6">${esc(nd.detail||'')}</p></div>`);
+  modal(`<div class="modal-head"><h2>${esc(nd.label)}</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div><div class="modal-body"><div class="chip violet mb">${esc(ct)}</div><p style="font-size:14.5px;line-height:1.6">${esc(nd.detail||'')}</p></div>`);
 }
 /* ==================================================================
    ACCUEIL (premier lancement) + avis clinique
@@ -1819,7 +1857,7 @@ const friday={
   show(html,acts){
     acts=acts||[];this.visible=true;$('#fridayBadge').style.display='none';
     const host=$('#fridayBubbleHost');
-    host.innerHTML=`<div class="friday-bubble"><button class="bclose" onclick="friday.hide()">${ic('x','ic-sm')}</button>
+    host.innerHTML=`<div class="friday-bubble"><button class="bclose" aria-label="Fermer la bulle de Friday" onclick="friday.hide()">${ic('x','ic-sm')}</button>
       <div class="fname">${ic('smile','ic-sm')} Friday</div>
       <p>${html}</p>${acts.length?`<div class="bact">${acts.map(a=>`<button class="btn sm ${a.a.indexOf('go')===0?'primary':'ghost'}" onclick="friday.act('${a.a}')">${esc(a.t)}</button>`).join('')}</div>`:''}</div>`;
   },
