@@ -580,18 +580,57 @@ function aiHint(){
     <div class="row" style="gap:10px"><span style="color:var(--yellow-d)">${ic('alert')}</span><div><b style="font-size:13.5px">Active les fonctions IA</b><div class="muted" style="font-size:12.5px">Dans l'application téléchargée, ajoute ta clé API Anthropic (stockée seulement sur cet appareil) pour utiliser résumés, quiz, fiches et cas cliniques.</div></div></div>
     <button class="btn sm primary" onclick="go('settings')">${ic('gear')} Configurer</button></div></div>`;
 }
+/* ---------- Gestion d'erreurs IA uniforme (P0-3) ----------
+   askClaude lance des erreurs typées (e.code) ; aiError(e, retryJs) les
+   affiche de façon centralisée avec un message fr-CA actionnable et un
+   bouton « Réessayer ». retryJs = expression inline à exécuter au clic
+   (ex. 'doMeds()'), même convention que les onclick du reste de l'app. */
+const AI_TIMEOUT_MS=60000;
+function aiErr(code,msg){const e=new Error(msg);e.code=code;return e;}
+const AI_ERR_TITLES={
+  'no-key':'Fonctions IA non configurées',
+  auth:'Clé API refusée',
+  quota:'Limite d\'utilisation atteinte',
+  timeout:'Le service IA ne répond pas',
+  network:'Connexion impossible',
+  json:'Réponse IA illisible',
+  http:'Erreur du service IA'
+};
+function aiError(e,retryJs){
+  const code=(e&&e.code)||'http';
+  const showSettings=code==='no-key'||code==='auth';
+  return `<div class="empty"><div class="eic">${ic('alert')}</div><h3>${esc(AI_ERR_TITLES[code]||AI_ERR_TITLES.http)}</h3><p>${esc((e&&e.message)||'Erreur inconnue.')}</p>
+    <div class="row wrap mt" style="gap:8px;justify-content:center">
+      ${retryJs?`<button class="btn primary sm" onclick="${esc(retryJs)}">${ic('refresh')} Réessayer</button>`:''}
+      ${showSettings?`<button class="btn sm" onclick="go('settings')">${ic('gear')} Ouvrir les Réglages</button>`:''}
+    </div></div>`;
+}
 async function askClaude(userText,opt){
   opt=opt||{};
+  const ready=aiReady();
+  if(!ready.key&&!ready.proxy) throw aiErr('no-key','Les fonctions IA nécessitent une clé API personnelle. Ajoute-la dans les Réglages (elle reste sur cet appareil).');
   const body={max_tokens:opt.max||2400,system:opt.system||SYS_DEFAULT,messages:[{role:'user',content:userText}]};
   const headers={'Content-Type':'application/json'};
   if(_apiKey){ headers['x-api-key']=_apiKey; headers['anthropic-version']='2023-06-01'; headers['anthropic-dangerous-direct-browser-access']='true'; body.model=_apiModel||'claude-sonnet-4-5'; }
   else { body.model='claude-sonnet-4-6'; }
-  let res;
-  try{ res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers,body:JSON.stringify(body)}); }
-  catch(netErr){ throw new Error(aiReady().proxy?'Connexion au service IA impossible. Vérifie ta connexion Internet.':'Les fonctions IA nécessitent une clé API. Ouvre Réglages pour l\'ajouter.'); }
-  if(res.status===401||res.status===403){ throw new Error('Clé API refusée. Vérifie ta clé dans Réglages.'); }
-  if(!res.ok){ let t='';try{t=await res.text();}catch(e){} throw new Error('Le service IA a répondu '+res.status+(t?' — '+t.replace(/\s+/g,' ').slice(0,150):'')); }
-  const data=await res.json();
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),AI_TIMEOUT_MS);
+  let res,data;
+  try{
+    try{ res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers,body:JSON.stringify(body),signal:ctrl.signal}); }
+    catch(netErr){
+      if(ctrl.signal.aborted) throw aiErr('timeout','Le service IA n\'a pas répondu après '+Math.round(AI_TIMEOUT_MS/1000)+' secondes. Réessaie dans un instant.');
+      throw aiErr('network','Connexion au service IA impossible. Vérifie ta connexion Internet, puis réessaie.');
+    }
+    if(res.status===401||res.status===403) throw aiErr('auth','Clé API refusée par le service. Vérifie ta clé dans les Réglages.');
+    if(res.status===429) throw aiErr('quota','Le service IA limite temporairement les requêtes (429). Attends une minute, puis réessaie.');
+    if(!res.ok){ let t='';try{t=await res.text();}catch(e){} throw aiErr('http','Le service IA a répondu '+res.status+(t?' — '+t.replace(/\s+/g,' ').slice(0,150):'')+'. Réessaie dans un instant.'); }
+    try{ data=await res.json(); }
+    catch(e){
+      if(ctrl.signal.aborted) throw aiErr('timeout','Le service IA a mis plus de '+Math.round(AI_TIMEOUT_MS/1000)+' secondes à répondre. Réessaie dans un instant.');
+      throw aiErr('json','La réponse du service IA est illisible. Réessaie dans un instant.');
+    }
+  }finally{ clearTimeout(timer); }
   let text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
   if(opt.json){
     text=text.replace(/```json/gi,'').replace(/```/g,'').trim();
@@ -600,7 +639,8 @@ async function askClaude(userText,opt){
     if(st>0) text=text.slice(st);
     const ea=text.lastIndexOf('}'),eb=text.lastIndexOf(']');const en=Math.max(ea,eb);
     if(en>-1) text=text.slice(0,en+1);
-    return JSON.parse(text);
+    try{ return JSON.parse(text); }
+    catch(e){ throw aiErr('json','La réponse IA n\'était pas dans le format attendu. Relance la génération.'); }
   }
   return text;
 }
@@ -1024,7 +1064,7 @@ async function doSummary(){
       <h4 style="font-size:14px;margin:16px 0 8px">Points d'examen probables</h4><ul class="bul">${(r.points_examen||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul>
       <div class="row mt wrap" style="gap:8px"><button class="btn green sm" onclick='saveSummary(${attr({subject:subj,...r})})'>${ic('check')} Sauvegarder</button>
       <button class="btn pink sm" onclick='cardsFromSummary(${attr(r)})'>${ic('cards')} Créer des flashcards</button></div>`;
-  }catch(e){$('#pptOut').innerHTML=emptyBox('alert','Le résumé a échoué',esc(e.message)+'. Réessaie dans un instant.');}
+  }catch(e){$('#pptOut').innerHTML=aiError(e,'doSummary()');}
   btn.disabled=false;btn.innerHTML=ic('spark')+' Générer le résumé';
 }
 function saveSummary(data){S.summaries.unshift({id:uid(),date:todayISO(),subject:data.subject,title:data.titre||'Résumé',data});save('summaries');if($('#pptSaved'))$('#pptSaved').innerHTML=savedSummaries();bumpStreak();toast('Résumé sauvegardé','ok');}
@@ -1061,7 +1101,7 @@ async function doMeds(){
     const items=Array.isArray(r)?r:(r.medicaments||[]);
     S.meds.unshift({id:uid(),date:todayISO(),patho,subject:subj,items});save('meds');bumpStreak();
     $('#medOut').innerHTML=medCards(items,patho)+`<div class="hr"></div>`+savedMeds();toast('Fiches générées et sauvegardées','ok');
-  }catch(e){$('#medOut').innerHTML=emptyBox('alert','Génération échouée',esc(e.message));}
+  }catch(e){$('#medOut').innerHTML=aiError(e,'doMeds()');}
   if(btn){btn.disabled=false;btn.innerHTML=ic('spark')+' Générer';}
 }
 const MEDKEYS={mecanisme:'Mécanisme',indications:'Indication',effets_secondaires:'Effets 2ᵃⁱʳᵉˢ',surveillances:'Surveillances',contre_indications:'Contre-ind.',enseignement:'Enseignement'};
@@ -1100,7 +1140,7 @@ async function doCase(){
     r.subjects=subs;currentCase=r;
     S.cases.unshift({id:uid(),date:todayISO(),subjects:subs,titre:r.titre,data:r});save('cases');bumpStreak();
     renderCaseView(r);toast('Cas généré','ok');
-  }catch(e){$('#caseOut').innerHTML=emptyBox('alert','Création échouée',esc(e.message));}
+  }catch(e){$('#caseOut').innerHTML=aiError(e,'doCase()');}
   btn.disabled=false;btn.innerHTML=ic('clipboard')+' Créer le cas';
 }
 function renderCaseView(r,inModal){
@@ -1223,7 +1263,7 @@ async function doQuiz(){
       system:'Tu es concepteur d\'examens OIIQ/NGN. Réponds UNIQUEMENT avec un objet JSON: {"titre":"...","questions":[{"type":"qcm|sata|ordre","situation":"contexte clinique (optionnel)","question":"...","options":["..."],"reponse":0,"reponses":[0,2],"ordre":["étape1","étape2","étape3"],"explication":"justification détaillée","competence":"compétence évaluée"}]}. Pour qcm: options+reponse(index). Pour sata: options+reponses(indices, 2 à 4 bonnes). Pour ordre: "ordre"=liste des étapes DANS LE BON ORDRE (ignore options/reponse). Français québécois, terminologie OIIQ.'});
     (r.questions||[]).forEach(q=>{ if(q.type==='ordre'&&q.ordre){ q._shuffled=q.ordre.map((t,i)=>({t,i})).sort(()=>Math.random()-.5); } });
     currentQuiz=r;currentQuiz.subject=subj;quizAns={};quizRevealed=false;renderQuizRun();
-  }catch(e){$('#quizOut').innerHTML=emptyBox('alert','Création échouée',esc(e.message));}
+  }catch(e){$('#quizOut').innerHTML=aiError(e,'doQuiz()');}
   btn.disabled=false;btn.innerHTML=ic('spark')+' Créer le quiz';
 }
 function renderQuizRun(){
@@ -1327,7 +1367,7 @@ async function doServiceSheet(){
     const r=await askClaude(`Prépare une fiche de préparation de stage pour un étudiant infirmier affecté au service : ${svc} (contexte québécois).`,{json:true,max:2200,
       system:'Tu es une préceptrice de stage. Réponds UNIQUEMENT avec un objet JSON: {"clientele":"...","pathologies":["..."],"medicaments":["..."],"surveillances":["priorités de surveillance"],"gestes":["gestes fréquents"],"conseil":"un conseil clé pour réussir"}. Français québécois.'});
     r.service=svc;S.stage.sheets.unshift({id:uid(),...r});save('stage');bumpStreak();renderStageBody();toast('Fiche générée','ok');
-  }catch(e){$('#svcOut').innerHTML=emptyBox('alert','Génération échouée',esc(e.message));}
+  }catch(e){$('#svcOut').innerHTML=aiError(e,'doServiceSheet()');}
   btn.disabled=false;btn.innerHTML=ic('spark')+' Générer la fiche de préparation';
 }
 function sheetHTML(s){const list=(t,arr,icn)=>arr&&arr.length?`<div style="margin-top:10px"><div class="row" style="gap:6px;color:var(--ink-2);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${ic(icn,'ic-sm')} ${t}</div><ul class="bul" style="font-size:13.5px">${arr.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
@@ -1579,7 +1619,7 @@ async function doSchema(){
     const r=await askClaude(`Construis un schéma intégrateur infirmier pour : ${patho}. Relie les 4 niveaux.`,{json:true,max:2400,
       system:'Réponds UNIQUEMENT avec un objet JSON: {"titre":"...","cols":[{"title":"Physiopathologie","nodes":[{"label":"court","detail":"explication"}]},{"title":"Pharmacologie","nodes":[...]},{"title":"Surveillance infirmière","nodes":[...]},{"title":"Raisonnement clinique","nodes":[...]}]}. 2 à 3 nodes par colonne, labels courts. Français québécois.'});
     currentSchema=r;bumpStreak();drawSchema();
-  }catch(e){$('#schOut').innerHTML=emptyBox('alert','Génération échouée',esc(e.message));}
+  }catch(e){$('#schOut').innerHTML=aiError(e,'doSchema()');}
   btn.disabled=false;btn.innerHTML=ic('spark')+' Générer le schéma';
 }
 function drawSchema(){

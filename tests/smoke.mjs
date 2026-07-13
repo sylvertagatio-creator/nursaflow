@@ -11,7 +11,10 @@
  *   6. Ajout d'une flashcard ;
  *   7. Calculatrice de dose : 70 kg × 5 mg/kg = 350 mg ;
  *   8. Ouverture des Réglages (clé IA + avis clinique affichés) ;
- *   9. Export d'une sauvegarde puis ré-import (round-trip).
+ *   9. Erreurs IA uniformes (P0-3) : action IA sans clé puis hors ligne
+ *      → message clair + bouton « Réessayer » fonctionnel, jamais de
+ *      spinner infini ni d'erreur console ;
+ *  10. Export d'une sauvegarde puis ré-import (round-trip).
  *
  * Usage :
  *   npm install jsdom --no-save   # une seule fois
@@ -155,7 +158,38 @@ try {
   check('Réglages : champ de clé IA et avis clinique affichés',
     !!doc.querySelector('#setKey') && doc.querySelector('#main').textContent.includes("outil d'aide à l'étude"));
 
-  /* ---------- 9 · Export / import ---------- */
+  /* ---------- 9 · Erreurs IA uniformes (P0-3) ---------- */
+  // a) Sans clé, hors claude.ai : l'action IA doit afficher l'erreur « clé absente »
+  //    proprement — pas de spinner infini, bouton de génération réactivé, 0 erreur console.
+  win.go('meds');
+  doc.querySelector('#medPatho').value = 'MPOC';
+  const aiErrsBefore = consoleErrors.length;
+  await win.doMeds();
+  const medOut = doc.querySelector('#medOut');
+  check('IA sans clé : message clair + Réessayer + Réglages, sans plantage',
+    medOut.textContent.includes('Fonctions IA non configurées')
+    && medOut.textContent.includes('Réessayer')
+    && medOut.textContent.includes('Ouvrir les Réglages')
+    && !medOut.querySelector('.ai-loading')
+    && doc.querySelector('#medGo').disabled === false
+    && consoleErrors.length === aiErrsBefore,
+    `contenu : « ${medOut.textContent.trim().slice(0, 120)} »`);
+
+  // b) Avec clé mais réseau coupé : le clic sur « Réessayer » relance vraiment
+  //    l'appel, qui aboutit à l'erreur réseau — réessai fonctionnel.
+  win.eval('_apiKey="cle-de-test"');
+  medOut.querySelector('button.btn.primary').click(); // → doMeds() → fetch rejeté
+  await sleep(80); // laisse la promesse rejeter et le rendu se faire
+  check('IA hors ligne : erreur réseau propre après clic sur Réessayer',
+    medOut.textContent.includes('Connexion impossible')
+    && medOut.textContent.includes('Réessayer')
+    && !medOut.querySelector('.ai-loading')
+    && doc.querySelector('#medGo').disabled === false
+    && consoleErrors.length === aiErrsBefore,
+    `contenu : « ${medOut.textContent.trim().slice(0, 120)} »`);
+  win.eval('_apiKey=""'); // restaure l'état sans clé pour la suite du parcours
+
+  /* ---------- 10 · Export / import ---------- */
   win.exportData();
   const blob = exportBlobs[exportBlobs.length - 1];
   let dump = null;

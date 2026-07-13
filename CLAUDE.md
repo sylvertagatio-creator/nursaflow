@@ -106,6 +106,12 @@ Un seul `<style>` (design system, `src/styles.css`) puis un seul `<script>`
 l'environnement ; `aiHint()` affiche un bandeau « configure l'IA » sur les vues IA
 (`ppt, meds, cases, quiz, schemas`) quand aucune clé n'est disponible.
 
+**Erreurs IA (P0-3)** : `askClaude` lance des erreurs typées (`e.code` ∈ `no-key,
+auth, quota, timeout, network, json, http`) avec timeout de 60 s (`AbortController`).
+Tout appelant IA (`doSummary, doMeds, doCase, doQuiz, doServiceSheet, doSchema`)
+affiche l'échec via `aiError(e, 'retryFn()')` — message fr-CA actionnable + bouton
+« Réessayer ». Garde ce circuit pour tout nouvel appel IA ; jamais de spinner infini.
+
 > **⚠️ Sécurité produit** : le BYOK expose une clé côté client — acceptable pour un usage
 > **personnel**, **inacceptable pour un produit commercial**. La cible est un **backend**
 > qui détient la clé et applique des quotas. Voir `AMELIORATIONS.md` § « Backend & IA ».
@@ -132,7 +138,8 @@ node build.mjs
 #    (installer jsdom une fois : npm install jsdom --no-save)
 #    Couvre : node --check sur le JS extrait, détection de doublons de fonctions,
 #    démarrage jsdom (file:// + CDN bloqués + hors ligne), navigation des vues,
-#    CRUD tâche, flashcard, calcRun = 350 mg, Réglages, export/import.
+#    CRUD tâche, flashcard, calcRun = 350 mg, Réglages, erreurs IA propres
+#    (sans clé / hors ligne + bouton Réessayer), export/import.
 node tests/smoke.mjs
 ```
 
