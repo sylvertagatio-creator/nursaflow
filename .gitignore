@@ -1,0 +1,6 @@
+# Dépendance de test uniquement (npm install jsdom --no-save)
+node_modules/
+package-lock.json
+
+# Fichier temporaire de la procédure de validation manuelle (CLAUDE.md §7)
+_app.js
