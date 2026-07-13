@@ -14,7 +14,9 @@
  *   9. Erreurs IA uniformes (P0-3) : action IA sans clé puis hors ligne
  *      → message clair + bouton « Réessayer » fonctionnel, jamais de
  *      spinner infini ni d'erreur console ;
- *  10. Export d'une sauvegarde puis ré-import (round-trip).
+ *  10. Export d'une sauvegarde puis ré-import (round-trip) ;
+ *  11. Migration (P1-1) : importer une vieille sauvegarde sans schemaVersion
+ *      (formats hérités) doit la migrer et tout restaurer sans perte.
  *
  * Usage :
  *   npm install jsdom --no-save   # une seule fois
@@ -221,7 +223,33 @@ try {
     check('Import : données restaurées depuis la sauvegarde', false, 'sauté — export invalide');
   }
 
-  win.close(); // stoppe les minuteries (dont le location.reload() d'importData)
+  /* ---------- 11 · Migration d'une vieille sauvegarde (P1-1) ---------- */
+  // Sauvegarde d'avant le versionnage : pas de _schema, subjects en tableau
+  // (ancien format), profile sans quiz, stage sans sheets.
+  const oldSave = {
+    _app: 'NursaFlow', _v: 2,
+    profile: { name: 'Ancienne Utilisatrice', streak: 4, lastActive: null, studySec: 0, stageHours: 0 },
+    tasks: [{ id: 'old1', title: 'Tâche héritée', subject: 'medecine', cat: 'Lecture', due: null, prio: 'h', done: false }],
+    cards: [{ id: 'oldc1', recto: 'Vieux recto', verso: 'Vieux verso', subject: 'medecine', ease: 2.4, interval: 0, due: 0, reps: 0 }],
+    subjects: [],
+    stage: { skills: [], journal: [{ id: 'oldj1', service: 'Médecine', date: '2025-01-15', situation: 'Situation héritée', reasoning: 'Raisonnement hérité' }] }
+  };
+  win.importData({ files: [new win.File([JSON.stringify(oldSave)], 'vieille-sauvegarde.json', { type: 'application/json' })] });
+  let migrated = false;
+  for (let i = 0; i < 40 && !migrated; i++) { await sleep(10); migrated = win.S.profile.name === 'Ancienne Utilisatrice'; }
+  const schemaStored = await win.eval('Store.get("schemaVersion")');
+  check('Migration : vieille sauvegarde sans schemaVersion importée sans perte',
+    migrated
+    && win.S.tasks.length === 1 && win.S.tasks[0].title === 'Tâche héritée'
+    && win.S.cards.some(c => c.recto === 'Vieux recto')
+    && win.S.stage.journal.some(j => j.situation === 'Situation héritée')
+    && !Array.isArray(win.S.subjects) && typeof win.S.subjects === 'object'  // tableau hérité → objet
+    && typeof win.S.profile.quiz === 'object'                                // quiz ajouté par la migration
+    && Array.isArray(win.S.stage.sheets)                                     // sheets ajouté par la migration
+    && schemaStored === 2,                                                   // version persistée
+    `profil=${win.S.profile.name} · schemaVersion=${schemaStored}`);
+
+  win.close(); // stoppe les minuteries (dont les location.reload() d'importData)
 
   /* ---------- Bilan ---------- */
   check('Aucune erreur console sur tout le parcours', consoleErrors.length === 0, consoleErrors.slice(0, 5).join(' | '));

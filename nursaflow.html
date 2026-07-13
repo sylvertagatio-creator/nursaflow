@@ -528,16 +528,63 @@ let S = {
 };
 window.S = S;
 
+/* ---------- Versionnage du schéma & migrations (P1-1) ----------
+   SCHEMA_VERSION est la version courante des données. MIGRATIONS[n] fait
+   passer un état complet (mêmes clés que S) de la version n à n+1, en le
+   mutant en place. Chaque migration doit être IDEMPOTENTE : la ré-appliquer
+   sur un état déjà migré ne change rien. Utilisé au démarrage (loadAll) et
+   à l'import (importData). Quand tu changes la forme des données : incrémente
+   SCHEMA_VERSION et ajoute MIGRATIONS[ancienne version]. */
+const SCHEMA_VERSION=2;
+const STATE_KEYS=['profile','tasks','events','subjects','summaries','meds','exams','cards','cases','stage'];
+const MIGRATIONS={
+  // v1 → v2 : sauvegardes d'avant le versionnage — normalise les formats
+  // hérités (subjects en tableau, profile.quiz absent, stage incomplet).
+  1(st){
+    if(!st.profile||typeof st.profile!=='object')st.profile={name:'',streak:0,lastActive:null,studySec:0,stageHours:0,quiz:{}};
+    if(!st.profile.quiz||typeof st.profile.quiz!=='object')st.profile.quiz={};
+    ['tasks','events','summaries','meds','exams','cards','cases'].forEach(k=>{if(!Array.isArray(st[k]))st[k]=[];});
+    if(!st.subjects||Array.isArray(st.subjects)||typeof st.subjects!=='object')st.subjects={};
+    if(!st.stage||typeof st.stage!=='object')st.stage={};
+    ['skills','journal','sheets'].forEach(k=>{if(!Array.isArray(st.stage[k]))st.stage[k]=[];});
+    return st;
+  }
+};
+function migrateState(st,from){
+  let v=from;
+  while(v<SCHEMA_VERSION&&MIGRATIONS[v]){ st=MIGRATIONS[v](st)||st; v++; }
+  return v;
+}
+
 async function loadAll(){
-  const keys=['profile','tasks','events','subjects','summaries','meds','exams','cards','cases','stage'];
-  for(const k of keys){ const v=await Store.get(k); if(v!=null) S[k]=v; }
+  for(const k of STATE_KEYS){ const v=await Store.get(k); if(v!=null) S[k]=v; }
+  const stored=await Store.get('schemaVersion');
+  const from=(typeof stored==='number'&&stored>=1)?stored:1;
+  if(from<SCHEMA_VERSION){
+    migrateState(S,from);
+    for(const k of STATE_KEYS) await Store.set(k,S[k]); // re-persiste l'état migré
+  }
+  if(stored!==SCHEMA_VERSION) await Store.set('schemaVersion',SCHEMA_VERSION);
   if(!S.subjects||Array.isArray(S.subjects)) S.subjects={};
   for(const id in SUBJECTS){ if(!S.subjects[id]) S.subjects[id]={objectives:[],notes:''}; }
   if(!S.profile.quiz) S.profile.quiz={};
   if(!S.stage) S.stage={skills:[],journal:[],sheets:[]};
   if(!S.stage.skills||!S.stage.skills.length) S.stage.skills=DEFAULT_SKILLS.map(l=>({id:uid(),label:l,done:false,date:null}));
 }
-const save = k => Store.set(k,S[k]);
+
+/* Écritures debouncées : les mutations rapprochées d'une même clé (ex.
+   cocher plusieurs tâches) ne déclenchent qu'une écriture. Le flush sur
+   beforeunload/visibilitychange évite de perdre une écriture en attente. */
+const SAVE_DEBOUNCE_MS=250;
+const _pendingSaves={};
+const save=k=>{
+  clearTimeout(_pendingSaves[k]);
+  _pendingSaves[k]=setTimeout(()=>{delete _pendingSaves[k];Store.set(k,S[k]);},SAVE_DEBOUNCE_MS);
+};
+function cancelPendingSaves(){for(const k in _pendingSaves){clearTimeout(_pendingSaves[k]);delete _pendingSaves[k];}}
+function flushSaves(){for(const k in _pendingSaves){clearTimeout(_pendingSaves[k]);delete _pendingSaves[k];Store.set(k,S[k]);}}
+window.addEventListener('beforeunload',flushSaves);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSaves();});
 
 /* ---------- Utilitaires ---------- */
 const $ = s => document.querySelector(s);
@@ -1714,7 +1761,7 @@ async function testApi(){
 function clearApi(){_apiKey='';Store.set('apikey','');const k=$('#setKey');if(k)k.value='';const r=$('#setResult');if(r)r.innerHTML=`<div class="chip">Clé effacée.</div>`;buildNav();toast('Clé effacée','ok');}
 function saveName(){S.profile.name=$('#setName').value.trim();save('profile');toast('Enregistré','ok');}
 function exportData(){
-  const dump={_app:'NursaFlow',_v:2,_date:new Date().toISOString()};['profile','tasks','events','subjects','summaries','meds','exams','cards','cases','stage'].forEach(k=>dump[k]=S[k]);
+  const dump={_app:'NursaFlow',_v:2,_schema:SCHEMA_VERSION,_date:new Date().toISOString()};STATE_KEYS.forEach(k=>dump[k]=S[k]);
   const blob=new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download='nursaflow-sauvegarde.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   toast('Sauvegarde exportée','ok');
@@ -1725,15 +1772,20 @@ function importData(input){
   rd.onload=async()=>{
     try{
       const d=JSON.parse(rd.result);
-      const keys=['profile','tasks','events','subjects','summaries','meds','exams','cards','cases','stage'];
-      if(!keys.some(k=>k in d))throw new Error('Fichier non reconnu');
-      for(const k of keys){ if(k in d){ S[k]=d[k]; await Store.set(k,d[k]); } }
+      if(!STATE_KEYS.some(k=>k in d))throw new Error('Fichier non reconnu');
+      const from=(typeof d._schema==='number'&&d._schema>=1)?d._schema:1; // sauvegardes d'avant P1-1 = v1
+      if(from>SCHEMA_VERSION){toast('Sauvegarde créée par une version plus récente de NursaFlow — mets l\'app à jour avant d\'importer','err');return;}
+      const st={};for(const k of STATE_KEYS)st[k]=(k in d)?d[k]:S[k];
+      if(from<SCHEMA_VERSION)migrateState(st,from);
+      cancelPendingSaves(); // une écriture debouncée en attente ne doit pas écraser l'import
+      for(const k of STATE_KEYS){ S[k]=st[k]; await Store.set(k,st[k]); }
+      await Store.set('schemaVersion',SCHEMA_VERSION);
       toast('Sauvegarde restaurée','ok');setTimeout(()=>location.reload(),600);
     }catch(e){toast('Fichier de sauvegarde invalide','err');}
   };
   rd.readAsText(f);
 }
-async function resetData(){for(const k of ['profile','tasks','events','subjects','summaries','meds','exams','cards','cases','stage']){await Store.set(k,null);}location.reload();}
+async function resetData(){cancelPendingSaves();for(const k of [...STATE_KEYS,'schemaVersion']){await Store.set(k,null);}location.reload();}
 
 /* ==================================================================
    FRIDAY — compagnon actif (rappels, encouragements)

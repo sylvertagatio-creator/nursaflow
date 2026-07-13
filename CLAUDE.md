@@ -86,7 +86,10 @@ Un seul `<style>` (design system, `src/styles.css`) puis un seul `<script>`
 - **Couleurs/espacements** : utilise les variables CSS (`var(--blue)`, `var(--sp-4)`, …),
   jamais de valeurs magiques en dur.
 - **Persistance** : passe toujours par `Store.get/set` et le miroir dans `S`. Après une
-  mutation de `S.x`, appelle `save('x')`.
+  mutation de `S.x`, appelle `save('x')` (écriture debouncée ~250 ms, flush sur
+  `beforeunload`). **Si tu changes la forme des données** : incrémente `SCHEMA_VERSION`
+  et ajoute une migration idempotente `MIGRATIONS[ancienne version]` (P1-1) — le
+  démarrage et `importData` migrent automatiquement les vieilles données.
 - **fr-CA** partout dans l'UI. Terminologie infirmière québécoise.
 - **Pas de `localStorage`/`sessionStorage` directs dans un artifact claude.ai** — mais ici,
   dans le fichier autonome, `Store` les utilise volontairement en repli. C'est voulu.
