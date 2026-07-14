@@ -32,14 +32,15 @@
 :root{
   /* neutrals — proches de black-100…750 de WDS */
   --white:#FFFFFF; --canvas:#F7F8FA; --canvas-2:#F0F2F5; --canvas-3:#E7EAF0;
-  --ink:#0B1220; --ink-2:#4A4F5E; --ink-3:#7B8094; --ink-4:#AFB3C0;
+  /* ink-3/ink-4 assombris (P0-4) : ≥ 4,5:1 sur blanc et sur canvas-2 */
+  --ink:#0B1220; --ink-2:#4A4F5E; --ink-3:#646B7C; --ink-4:#6E7488;
   --line:#E3E5EC; --line-2:#EDEEF3;
 
   /* accent principal — bleu WDS #116DFF, ajusté légèrement pour contraste texte */
   --blue:#1464F0; --blue-d:#0D4FCB; --blue-t:#EAF1FF;
   --pink:#E31C79; --pink-d:#C4145F; --pink-t:#FCEAF3;
   --green:#1F8845; --green-d:#146633; --green-t:#E7F5EA;
-  --yellow:#B75F00; --yellow-d:#8A4700; --yellow-t:#FCF0DC; --yellow-solid:#F5A623;
+  --yellow:#A85600; --yellow-d:#8A4700; --yellow-t:#FCF0DC; --yellow-solid:#F5A623;
   --teal:#0C8887; --teal-d:#08655F; --teal-t:#E1F3F2;
   --violet:#6544F9; --violet-d:#4F2FE0; --violet-t:#EDE9FE;
   --indigo:#4550E5; --indigo-t:#E9EAFB;
@@ -68,6 +69,9 @@ html,body{height:100%}
 body{font-family:var(--f-body);color:var(--ink);background:var(--canvas);font-size:14px;line-height:1.5;
   -webkit-font-smoothing:antialiased;overflow:hidden}
 h1,h2,h3,h4{font-family:var(--f-disp);font-weight:700;letter-spacing:-.01em;line-height:1.2;color:var(--ink)}
+/* P0-4 : l'ordre des titres est sémantique (h1→h2→h3) ; les titres de section
+   promus en h2 gardent leur taille visuelle d'origine (celle d'un h3 UA) */
+.view h2,.card h2,.modal-body h2{font-size:1.17em}
 button{font-family:inherit;cursor:pointer;color:inherit}
 input,select,textarea{font-family:inherit;font-size:14px}
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:var(--r-2)}
@@ -172,7 +176,7 @@ label.field{display:block;margin-bottom:var(--sp-4)}
 .empty{text-align:center;padding:40px 20px;color:var(--ink-3)}
 .empty .eic{width:52px;height:52px;margin:0 auto 12px;border-radius:var(--r-6);background:var(--canvas-2);display:grid;place-items:center;color:var(--ink-4)}
 .empty .eic .ic{width:26px;height:26px}
-.empty h3{color:var(--ink-2);font-size:15px;margin-bottom:4px;font-weight:600}
+.empty h2,.empty h3{color:var(--ink-2);font-size:15px;margin-bottom:4px;font-weight:600}
 .empty p{font-size:13px;max-width:340px;margin:0 auto;color:var(--ink-3)}
 
 /* stat — surfaces claires avec puce d'icône teintée plutôt que dégradé plein (langage badge/fill-accent WDS) */
@@ -216,7 +220,7 @@ label.field{display:block;margin-bottom:var(--sp-4)}
 .subj:hover{transform:translateY(-3px);box-shadow:var(--sh)}
 .subj .sic{width:38px;height:38px;border-radius:var(--r-4);background:rgba(255,255,255,.2);display:grid;place-items:center}
 .subj .sic .ic{width:20px;height:20px}
-.subj h3{font-size:16px;color:#fff;font-weight:700}
+.subj h2,.subj h3{font-size:16px;color:#fff;font-weight:700}
 .subj .bar{height:5px;background:rgba(255,255,255,.28);border-radius:99px;margin-top:8px}
 .subj .bar>i{display:block;height:100%;background:#fff;border-radius:99px;transition:width .5s var(--ease)}
 .subj small{opacity:.9;font-size:11px;font-weight:600}
@@ -346,7 +350,7 @@ label.field{display:block;margin-bottom:var(--sp-4)}
 .v3d-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.75);font-size:13px;gap:10px}
 .anno{padding:13px 15px;border-left:3px solid var(--blue);background:var(--blue-t);border-radius:0 var(--r-4) var(--r-4) 0;margin-bottom:9px}
 .anno.role{border-color:var(--green);background:var(--green-t)}
-.anno h4{font-size:12.5px;margin-bottom:4px;display:flex;align-items:center;gap:6px;font-weight:700}
+.anno h2,.anno h3,.anno h4{font-size:12.5px;margin-bottom:4px;display:flex;align-items:center;gap:6px;font-weight:700}
 .anno p{font-size:13px;line-height:1.55;color:var(--ink-2)}
 
 /* schema (concept map) */
@@ -642,7 +646,7 @@ document.addEventListener('keydown',e=>{
   if(t instanceof Element&&t.matches('[role="button"]:not(button):not(a),[role="checkbox"]:not(input)')){ e.preventDefault(); t.click(); }
 });
 function copyText(txt){ navigator.clipboard?.writeText(txt).then(()=>toast('Copié','ok'),()=>toast('Copie impossible','err')); }
-const emptyBox=(icon,h,p)=>`<div class="empty"><div class="eic">${ic(icon)}</div><h3>${h}</h3><p>${p}</p></div>`;
+const emptyBox=(icon,h,p)=>`<div class="empty"><div class="eic">${ic(icon)}</div><h2>${h}</h2><p>${p}</p></div>`;
 
 /* ---------- IA (API Claude) — deux modes ----------
    1) Dans claude.ai : appel relayé automatiquement (aucune clé requise).
@@ -682,7 +686,7 @@ const AI_ERR_TITLES={
 function aiError(e,retryJs){
   const code=(e&&e.code)||'http';
   const showSettings=code==='no-key'||code==='auth';
-  return `<div class="empty"><div class="eic">${ic('alert')}</div><h3>${esc(AI_ERR_TITLES[code]||AI_ERR_TITLES.http)}</h3><p>${esc((e&&e.message)||'Erreur inconnue.')}</p>
+  return `<div class="empty"><div class="eic">${ic('alert')}</div><h2>${esc(AI_ERR_TITLES[code]||AI_ERR_TITLES.http)}</h2><p>${esc((e&&e.message)||'Erreur inconnue.')}</p>
     <div class="row wrap mt" style="gap:8px;justify-content:center">
       ${retryJs?`<button class="btn primary sm" onclick="${esc(retryJs)}">${ic('refresh')} Réessayer</button>`:''}
       ${showSettings?`<button class="btn sm" onclick="go('settings')">${ic('gear')} Ouvrir les Réglages</button>`:''}
@@ -963,13 +967,13 @@ function renderSubjects(){
   <div class="view"><div class="grid g-3">
     <div class="subj integ" onclick="go('integration')">
       <div class="sic">${ic('network')}</div>
-      <div style="flex:1"><h3>Intégration</h3><small style="opacity:.9">Matière transversale — compile et relie toutes les autres. Ouvre le tableau de synthèse.</small></div>
+      <div style="flex:1"><h2>Intégration</h2><small style="opacity:.9">Matière transversale — compile et relie toutes les autres. Ouvre le tableau de synthèse.</small></div>
       ${ic('chevR','ic-lg')}
     </div>
     ${CORE_SUBJECTS.map(id=>{const s=SUBJECTS[id];const p=subjProgress(id);const o=S.subjects[id]?.objectives||[];return `
       <div class="subj" style="background:linear-gradient(135deg,${s.hex},${shade(s.hex)})" onclick="openSubject('${id}')">
         <div class="row between"><div class="sic">${subjIcon(id)}</div><span class="chip" style="background:rgba(255,255,255,.22);color:#fff">${o.length} objectif${o.length!==1?'s':''}</span></div>
-        <div><h3>${s.name}</h3><div class="bar"><i style="width:${p}%"></i></div><small>${p}% maîtrisé</small></div></div>`;}).join('')}
+        <div><h2>${s.name}</h2><div class="bar"><i style="width:${p}%"></i></div><small>${p}% maîtrisé</small></div></div>`;}).join('')}
   </div></div>`;
 }
 function openSubject(id){
@@ -1080,7 +1084,7 @@ function saveCard(){const r=$('#cR').value.trim(),v=$('#cV').value.trim();if(!r|
 function startReview(){reviewQueue=dueCards();reviewIdx=0;cardFlipped=false;renderReview();}
 function renderReview(){
   const host=$('#main').querySelector('.view');if(!host)return;
-  if(reviewIdx>=reviewQueue.length){host.innerHTML=`<div class="empty"><div class="eic" style="background:var(--green-t);color:var(--green)">${ic('check')}</div><h3>Révision terminée !</h3><p>Bravo, tu as passé toutes tes cartes. Friday est fier de toi.</p><button class="btn primary mt" onclick="renderCards()">Retour</button></div>`;bumpStreak();friday.say('celebrate');buildNav();return;}
+  if(reviewIdx>=reviewQueue.length){host.innerHTML=`<div class="empty"><div class="eic" style="background:var(--green-t);color:var(--green)">${ic('check')}</div><h2>Révision terminée !</h2><p>Bravo, tu as passé toutes tes cartes. Friday est fier de toi.</p><button class="btn primary mt" onclick="renderCards()">Retour</button></div>`;bumpStreak();friday.say('celebrate');buildNav();return;}
   const c=reviewQueue[reviewIdx];const s=SUBJECTS[c.subject];
   host.innerHTML=`<div class="row between mb"><span class="chip" style="background:${s.hex}16;color:${s.hex}">${subjIcon(c.subject,'ic-sm')} ${s.name}</span><span class="muted" style="font-weight:600">${reviewIdx+1} / ${reviewQueue.length}</span></div>
     <div class="fc ${cardFlipped?'flip':''}" id="fcard" role="button" tabindex="0" aria-label="${cardFlipped?'Retourner la carte':'Révéler la réponse'}" onclick="cardFlipped=!cardFlipped;this.classList.toggle('flip');document.getElementById('fcHint').textContent=cardFlipped?'Comment as-tu répondu ?':'Touche la carte pour révéler la réponse'">
@@ -1144,9 +1148,9 @@ async function doSummary(){
       system:'Tu es un tuteur en soins infirmiers. Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour: {"titre":"...","concepts":["..."],"definitions":[{"terme":"...","def":"..."}],"points_examen":["..."],"a_retenir":"une phrase clé"}. Français québécois.'});
     $('#pptOut').innerHTML=`<div class="sec-title">${ic('fileText','ic-sm')} ${esc(r.titre||'Résumé')}</div>
       <div class="chip yellow mb">${ic('bulb','ic-sm')} À retenir : ${esc(r.a_retenir||'')}</div>
-      <h4 style="font-size:14px;margin:14px 0 8px">Concepts clés</h4><ul class="bul">${(r.concepts||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
-      <h4 style="font-size:14px;margin:16px 0 8px">Définitions</h4>${(r.definitions||[]).map(d=>`<div style="margin-bottom:7px;font-size:14px"><b>${esc(d.terme)} :</b> ${esc(d.def)}</div>`).join('')}
-      <h4 style="font-size:14px;margin:16px 0 8px">Points d'examen probables</h4><ul class="bul">${(r.points_examen||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul>
+      <h2 style="font-size:14px;margin:14px 0 8px">Concepts clés</h2><ul class="bul">${(r.concepts||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
+      <h2 style="font-size:14px;margin:16px 0 8px">Définitions</h2>${(r.definitions||[]).map(d=>`<div style="margin-bottom:7px;font-size:14px"><b>${esc(d.terme)} :</b> ${esc(d.def)}</div>`).join('')}
+      <h2 style="font-size:14px;margin:16px 0 8px">Points d'examen probables</h2><ul class="bul">${(r.points_examen||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul>
       <div class="row mt wrap" style="gap:8px"><button class="btn green sm" onclick='saveSummary(${attr({subject:subj,...r})})'>${ic('check')} Sauvegarder</button>
       <button class="btn pink sm" onclick='cardsFromSummary(${attr(r)})'>${ic('cards')} Créer des flashcards</button></div>`;
   }catch(e){$('#pptOut').innerHTML=aiError(e,'doSummary()');}
@@ -1156,9 +1160,9 @@ function saveSummary(data){S.summaries.unshift({id:uid(),date:todayISO(),subject
 function viewSummary(id){const s=S.summaries.find(x=>x.id===id);const r=s.data;
   modal(`<div class="modal-head"><h2>${esc(r.titre||s.title)}</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div>
   <div class="modal-body"><div class="chip yellow mb">${ic('bulb','ic-sm')} ${esc(r.a_retenir||'')}</div>
-    <h4 style="margin:10px 0 6px">Concepts clés</h4><ul class="bul">${(r.concepts||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
-    <h4 style="margin:14px 0 6px">Définitions</h4>${(r.definitions||[]).map(d=>`<div class="mb"><b>${esc(d.terme)} :</b> ${esc(d.def)}</div>`).join('')}
-    <h4 style="margin:14px 0 6px">Points d'examen</h4><ul class="bul">${(r.points_examen||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul></div>`,true);}
+    <h3 style="margin:10px 0 6px;font-size:14px">Concepts clés</h3><ul class="bul">${(r.concepts||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
+    <h3 style="margin:14px 0 6px;font-size:14px">Définitions</h3>${(r.definitions||[]).map(d=>`<div class="mb"><b>${esc(d.terme)} :</b> ${esc(d.def)}</div>`).join('')}
+    <h3 style="margin:14px 0 6px;font-size:14px">Points d'examen</h3><ul class="bul">${(r.points_examen||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul></div>`,true);}
 function cardsFromSummary(r){const defs=(r.definitions||[]).map(d=>({recto:d.terme,verso:d.def}));const pts=(r.concepts||[]).slice(0,4).map(c=>({recto:'Explique : '+String(c).split(':')[0].slice(0,60),verso:c}));const all=[...defs,...pts];if(!all.length)return toast('Rien à convertir','err');all.forEach(c=>addCard(c.recto,c.verso,'medecine'));toast(all.length+' flashcards créées','ok');buildNav();}
 
 /* ---------- 7 · FICHES MÉDICAMENTS ---------- */
@@ -1230,11 +1234,11 @@ async function doCase(){
 }
 function renderCaseView(r,inModal){
   const body=`<div class="chip violet mb">${(r.subjects||[]).map(s=>SUBJECTS[s]?.name).filter(Boolean).join(' + ')}</div>
-    <h3 style="margin-bottom:8px">${esc(r.titre)}</h3>
+    <h2 style="margin-bottom:8px">${esc(r.titre)}</h2>
     <div class="situ">${esc(r.vignette)}</div>
     ${(r.questions||[]).map((q,i)=>`<div class="q-card"><div class="q-num">Question ${i+1}</div><div style="font-weight:600;margin:8px 0;font-size:15px">${esc(q.question)}</div>
       <details style="cursor:pointer"><summary style="color:var(--blue-d);font-weight:600;font-size:13.5px">Voir la piste de réponse</summary><div class="q-explain" style="margin-top:10px"><b>Jugement clinique attendu :</b> ${esc(q.piste)}</div></details></div>`).join('')}
-    <div class="anno role"><h4>${ic('bulb','ic-sm')} Débreffage intégrateur</h4><p>${esc(r.debreffage)}</p></div>`;
+    <div class="anno role"><h3>${ic('bulb','ic-sm')} Débreffage intégrateur</h3><p>${esc(r.debreffage)}</p></div>`;
   if(inModal){modal(`<div class="modal-head"><h2>Cas clinique</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div><div class="modal-body">${body}</div>`,true);}
   else{$('#caseOut').innerHTML=`<div class="card pad">${body}</div><div class="hr"></div>${savedCases()}`;}
 }
@@ -1353,7 +1357,7 @@ async function doQuiz(){
 }
 function renderQuizRun(){
   const q=currentQuiz.questions||[];
-  $('#quizOut').innerHTML=`<div class="row between mb"><h3>${esc(currentQuiz.titre||'Quiz de pratique')}</h3><span class="chip blue">${q.length} questions</span></div>
+  $('#quizOut').innerHTML=`<div class="row between mb"><h2>${esc(currentQuiz.titre||'Quiz de pratique')}</h2><span class="chip blue">${q.length} questions</span></div>
     ${q.map((qq,i)=>quizQ(qq,i)).join('')}
     <div class="center mt">${quizRevealed?`<div class="chip green" style="font-size:15px;padding:11px 20px">Score : ${Math.round(quizScore()/q.length*100)}% (${quizScore().toFixed(1)} / ${q.length})</div><br><br>`:''}
       <button class="btn ${quizRevealed?'':'primary'}" onclick="${quizRevealed?'renderQuiz()':'revealQuiz()'}">${quizRevealed?'Nouveau quiz':'Corriger le quiz'}</button></div>`;
@@ -1456,10 +1460,10 @@ async function doServiceSheet(){
   btn.disabled=false;btn.innerHTML=ic('spark')+' Générer la fiche de préparation';
 }
 function sheetHTML(s){const list=(t,arr,icn)=>arr&&arr.length?`<div style="margin-top:10px"><div class="row" style="gap:6px;color:var(--ink-2);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${ic(icn,'ic-sm')} ${t}</div><ul class="bul" style="font-size:13.5px">${arr.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
-  return `<div class="card pad mb"><div class="row between"><h3 class="row" style="gap:8px">${ic('steth')} ${esc(s.service)}</h3><button class="btn icon ghost sm" aria-label="Supprimer la fiche de service" onclick="S.stage.sheets=S.stage.sheets.filter(x=>x.id!=='${s.id}');save('stage');renderStage()">${ic('trash')}</button></div>
+  return `<div class="card pad mb"><div class="row between"><h2 class="row" style="gap:8px">${ic('steth')} ${esc(s.service)}</h2><button class="btn icon ghost sm" aria-label="Supprimer la fiche de service" onclick="S.stage.sheets=S.stage.sheets.filter(x=>x.id!=='${s.id}');save('stage');renderStage()">${ic('trash')}</button></div>
     <div class="anno" style="margin-top:10px"><p><b>Clientèle :</b> ${esc(s.clientele)}</p></div>
     ${list('Pathologies fréquentes',s.pathologies,'heart')}${list('Médicaments courants',s.medicaments,'pill')}${list('Priorités de surveillance',s.surveillances,'alert')}${list('Gestes fréquents',s.gestes,'syringe')}
-    ${s.conseil?`<div class="anno role" style="margin-top:10px"><h4>${ic('bulb','ic-sm')} Conseil</h4><p>${esc(s.conseil)}</p></div>`:''}</div>`;}
+    ${s.conseil?`<div class="anno role" style="margin-top:10px"><h3>${ic('bulb','ic-sm')} Conseil</h3><p>${esc(s.conseil)}</p></div>`:''}</div>`;}
 
 /* ==================================================================
    11 · OUTILS CLINIQUES (doses, SBAR, références)
@@ -1558,9 +1562,9 @@ function renderAnatomy(){
   setTimeout(()=>{try{if(!window.THREE)throw new Error('Three.js non chargé');ANATOMY.init($('#viewer3d'),PATHO3D[anatomyKey].build,anatomyPatho);const ld=$('#v3dLoading');if(ld)ld.remove();}catch(e){const v=$('#viewer3d');if(v)v.innerHTML+=`<div style="color:#fff;padding:30px;text-align:center;position:absolute;inset:0;display:grid;place-items:center">Rendu 3D indisponible ici.<br><small style="opacity:.7">${esc(e.message)}</small></div>`;}},80);
 }
 function renderAnatomyAnno(){const p=PATHO3D[anatomyKey];const el=$('#anatomyAnno');if(!el)return;
-  el.innerHTML=`<div class="card pad"><h3 class="mb">${p.label}</h3>
-    <div class="anno"><h4>${ic('bulb','ic-sm')} Physiopathologie</h4><p>${p.physio}</p></div>
-    <div class="anno role"><h4>${ic('steth','ic-sm')} Rôle infirmier</h4><p>${p.role}</p></div>
+  el.innerHTML=`<div class="card pad"><h2 class="mb">${p.label}</h2>
+    <div class="anno"><h3>${ic('bulb','ic-sm')} Physiopathologie</h3><p>${p.physio}</p></div>
+    <div class="anno role"><h3>${ic('steth','ic-sm')} Rôle infirmier</h3><p>${p.role}</p></div>
     <div class="row wrap mt" style="gap:8px"><button class="btn sm violet" onclick="go('schemas');setTimeout(()=>{var e=document.getElementById('schPatho');if(e){e.value='${p.label}'}},160)">${ic('share')} Schéma intégrateur</button>
       <button class="btn sm" onclick="go('meds');setTimeout(()=>{var e=document.getElementById('medPatho');if(e){e.value='${p.label}';doMeds()}},220)">${ic('pill')} Médicaments liés</button></div></div>`;
 }
@@ -1725,7 +1729,7 @@ function drawSchema(){
       nodes+=`<g class="snode" onclick="schemaNode(${k},${ni})"><rect x="${x}" y="${y}" width="${CW}" height="${NH}" rx="13" fill="${colColors[k]}14" stroke="${colColors[k]}55" stroke-width="1.5"/><foreignObject x="${x+10}" y="${y+8}" width="${CW-20}" height="${NH-16}"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#182335;line-height:1.3;display:flex;align-items:center;height:100%">${esc(nd.label)}</div></foreignObject></g>`;
     });
   });
-  $('#schOut').innerHTML=`<div class="card pad"><div class="row between mb wrap" style="gap:8px"><h3>${esc(d.titre||'Schéma intégrateur')}</h3><span class="chip muted">Clique un concept pour le détail</span></div>
+  $('#schOut').innerHTML=`<div class="card pad"><div class="row between mb wrap" style="gap:8px"><h2>${esc(d.titre||'Schéma intégrateur')}</h2><span class="chip muted">Clique un concept pour le détail</span></div>
     <div class="schema-wrap"><svg class="schema" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${lines}${heads}${nodes}</svg></div></div>`;
 }
 function schemaNode(k,ni){const nd=currentSchema.cols[k].nodes[ni];const ct=currentSchema.cols[k].title;
@@ -1740,8 +1744,8 @@ function showOnboarding(){
   <div class="modal-body">
     <p style="font-size:14px;line-height:1.6;margin-bottom:14px">Ton compagnon d'étude en soins infirmiers : organisation, révision, préparation aux examens et aux stages — avec un tuteur nommé <b>Friday</b>.</p>
     <label class="field"><span>Ton prénom (facultatif)</span><input class="inp" id="obName" placeholder="Ex. Camille"></label>
-    <div class="anno mb"><h4>${ic('spark','ic-sm')} Fonctions IA — facultatives</h4><p>Résumés, quiz et fiches générés par l'IA nécessitent une clé API Anthropic (à ajouter dans Réglages). Tout le reste — tâches, calendrier, flashcards, calculs, 3D — fonctionne sans clé ni connexion.</p></div>
-    <div class="anno" style="border-color:var(--yellow-solid);background:var(--yellow-t)"><h4 style="color:var(--yellow-d)">${ic('alert','ic-sm')} Avis important</h4><p>${DISCLAIMER}</p></div>
+    <div class="anno mb"><h3>${ic('spark','ic-sm')} Fonctions IA — facultatives</h3><p>Résumés, quiz et fiches générés par l'IA nécessitent une clé API Anthropic (à ajouter dans Réglages). Tout le reste — tâches, calendrier, flashcards, calculs, 3D — fonctionne sans clé ni connexion.</p></div>
+    <div class="anno" style="border-color:var(--yellow-solid);background:var(--yellow-t)"><h3 style="color:var(--yellow-d)">${ic('alert','ic-sm')} Avis important</h3><p>${DISCLAIMER}</p></div>
   </div>
   <div class="modal-foot"><button class="btn primary block" onclick="finishOnboarding()">J'ai compris — commencer</button></div>`);
 }
@@ -1777,7 +1781,7 @@ function renderSettings(){
       <div class="row" style="gap:8px"><input class="inp" id="setName" value="${esc(S.profile.name||'')}" placeholder="Ex. Camille"><button class="btn" onclick="saveName()">${ic('check')}</button></div>
       <p class="muted" style="font-size:12px;margin-top:8px">Friday t'accueillera par ton prénom.</p>
       <div class="hr"></div>
-      <div class="anno" style="border-color:var(--yellow-solid);background:var(--yellow-t)"><h4 style="color:var(--yellow-d)">${ic('alert','ic-sm')} Avis important</h4><p style="font-size:12.5px">${DISCLAIMER}</p></div>
+      <div class="anno" style="border-color:var(--yellow-solid);background:var(--yellow-t)"><h2 style="color:var(--yellow-d)">${ic('alert','ic-sm')} Avis important</h2><p style="font-size:12.5px">${DISCLAIMER}</p></div>
       <p class="muted center" style="font-size:11px;margin-top:12px">NursaFlow · version 2.0</p>
     </div>
   </div></div>`;
@@ -1880,7 +1884,7 @@ const friday={
     if(!S.profile.onboarded) setTimeout(showOnboarding,300);
   }catch(e){
     console.error('Erreur d\'initialisation NursaFlow :',e);
-    document.getElementById('main').innerHTML=`<div class="view"><div class="empty"><div class="eic">${ic('alert')}</div><h3>Un problème est survenu au démarrage</h3><p>${esc(e.message)}. Essaie de recharger la page ; tes données déjà sauvegardées sont conservées.</p></div></div>`;
+    document.getElementById('main').innerHTML=`<div class="view"><div class="empty"><div class="eic">${ic('alert')}</div><h2>Un problème est survenu au démarrage</h2><p>${esc(e.message)}. Essaie de recharger la page ; tes données déjà sauvegardées sont conservées.</p></div></div>`;
   }
 })();
 </script>

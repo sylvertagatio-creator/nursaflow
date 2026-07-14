@@ -199,7 +199,7 @@ document.addEventListener('keydown',e=>{
   if(t instanceof Element&&t.matches('[role="button"]:not(button):not(a),[role="checkbox"]:not(input)')){ e.preventDefault(); t.click(); }
 });
 function copyText(txt){ navigator.clipboard?.writeText(txt).then(()=>toast('Copié','ok'),()=>toast('Copie impossible','err')); }
-const emptyBox=(icon,h,p)=>`<div class="empty"><div class="eic">${ic(icon)}</div><h3>${h}</h3><p>${p}</p></div>`;
+const emptyBox=(icon,h,p)=>`<div class="empty"><div class="eic">${ic(icon)}</div><h2>${h}</h2><p>${p}</p></div>`;
 
 /* ---------- IA (API Claude) — deux modes ----------
    1) Dans claude.ai : appel relayé automatiquement (aucune clé requise).
@@ -239,7 +239,7 @@ const AI_ERR_TITLES={
 function aiError(e,retryJs){
   const code=(e&&e.code)||'http';
   const showSettings=code==='no-key'||code==='auth';
-  return `<div class="empty"><div class="eic">${ic('alert')}</div><h3>${esc(AI_ERR_TITLES[code]||AI_ERR_TITLES.http)}</h3><p>${esc((e&&e.message)||'Erreur inconnue.')}</p>
+  return `<div class="empty"><div class="eic">${ic('alert')}</div><h2>${esc(AI_ERR_TITLES[code]||AI_ERR_TITLES.http)}</h2><p>${esc((e&&e.message)||'Erreur inconnue.')}</p>
     <div class="row wrap mt" style="gap:8px;justify-content:center">
       ${retryJs?`<button class="btn primary sm" onclick="${esc(retryJs)}">${ic('refresh')} Réessayer</button>`:''}
       ${showSettings?`<button class="btn sm" onclick="go('settings')">${ic('gear')} Ouvrir les Réglages</button>`:''}
@@ -520,13 +520,13 @@ function renderSubjects(){
   <div class="view"><div class="grid g-3">
     <div class="subj integ" onclick="go('integration')">
       <div class="sic">${ic('network')}</div>
-      <div style="flex:1"><h3>Intégration</h3><small style="opacity:.9">Matière transversale — compile et relie toutes les autres. Ouvre le tableau de synthèse.</small></div>
+      <div style="flex:1"><h2>Intégration</h2><small style="opacity:.9">Matière transversale — compile et relie toutes les autres. Ouvre le tableau de synthèse.</small></div>
       ${ic('chevR','ic-lg')}
     </div>
     ${CORE_SUBJECTS.map(id=>{const s=SUBJECTS[id];const p=subjProgress(id);const o=S.subjects[id]?.objectives||[];return `
       <div class="subj" style="background:linear-gradient(135deg,${s.hex},${shade(s.hex)})" onclick="openSubject('${id}')">
         <div class="row between"><div class="sic">${subjIcon(id)}</div><span class="chip" style="background:rgba(255,255,255,.22);color:#fff">${o.length} objectif${o.length!==1?'s':''}</span></div>
-        <div><h3>${s.name}</h3><div class="bar"><i style="width:${p}%"></i></div><small>${p}% maîtrisé</small></div></div>`;}).join('')}
+        <div><h2>${s.name}</h2><div class="bar"><i style="width:${p}%"></i></div><small>${p}% maîtrisé</small></div></div>`;}).join('')}
   </div></div>`;
 }
 function openSubject(id){
@@ -637,7 +637,7 @@ function saveCard(){const r=$('#cR').value.trim(),v=$('#cV').value.trim();if(!r|
 function startReview(){reviewQueue=dueCards();reviewIdx=0;cardFlipped=false;renderReview();}
 function renderReview(){
   const host=$('#main').querySelector('.view');if(!host)return;
-  if(reviewIdx>=reviewQueue.length){host.innerHTML=`<div class="empty"><div class="eic" style="background:var(--green-t);color:var(--green)">${ic('check')}</div><h3>Révision terminée !</h3><p>Bravo, tu as passé toutes tes cartes. Friday est fier de toi.</p><button class="btn primary mt" onclick="renderCards()">Retour</button></div>`;bumpStreak();friday.say('celebrate');buildNav();return;}
+  if(reviewIdx>=reviewQueue.length){host.innerHTML=`<div class="empty"><div class="eic" style="background:var(--green-t);color:var(--green)">${ic('check')}</div><h2>Révision terminée !</h2><p>Bravo, tu as passé toutes tes cartes. Friday est fier de toi.</p><button class="btn primary mt" onclick="renderCards()">Retour</button></div>`;bumpStreak();friday.say('celebrate');buildNav();return;}
   const c=reviewQueue[reviewIdx];const s=SUBJECTS[c.subject];
   host.innerHTML=`<div class="row between mb"><span class="chip" style="background:${s.hex}16;color:${s.hex}">${subjIcon(c.subject,'ic-sm')} ${s.name}</span><span class="muted" style="font-weight:600">${reviewIdx+1} / ${reviewQueue.length}</span></div>
     <div class="fc ${cardFlipped?'flip':''}" id="fcard" role="button" tabindex="0" aria-label="${cardFlipped?'Retourner la carte':'Révéler la réponse'}" onclick="cardFlipped=!cardFlipped;this.classList.toggle('flip');document.getElementById('fcHint').textContent=cardFlipped?'Comment as-tu répondu ?':'Touche la carte pour révéler la réponse'">
@@ -701,9 +701,9 @@ async function doSummary(){
       system:'Tu es un tuteur en soins infirmiers. Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour: {"titre":"...","concepts":["..."],"definitions":[{"terme":"...","def":"..."}],"points_examen":["..."],"a_retenir":"une phrase clé"}. Français québécois.'});
     $('#pptOut').innerHTML=`<div class="sec-title">${ic('fileText','ic-sm')} ${esc(r.titre||'Résumé')}</div>
       <div class="chip yellow mb">${ic('bulb','ic-sm')} À retenir : ${esc(r.a_retenir||'')}</div>
-      <h4 style="font-size:14px;margin:14px 0 8px">Concepts clés</h4><ul class="bul">${(r.concepts||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
-      <h4 style="font-size:14px;margin:16px 0 8px">Définitions</h4>${(r.definitions||[]).map(d=>`<div style="margin-bottom:7px;font-size:14px"><b>${esc(d.terme)} :</b> ${esc(d.def)}</div>`).join('')}
-      <h4 style="font-size:14px;margin:16px 0 8px">Points d'examen probables</h4><ul class="bul">${(r.points_examen||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul>
+      <h2 style="font-size:14px;margin:14px 0 8px">Concepts clés</h2><ul class="bul">${(r.concepts||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
+      <h2 style="font-size:14px;margin:16px 0 8px">Définitions</h2>${(r.definitions||[]).map(d=>`<div style="margin-bottom:7px;font-size:14px"><b>${esc(d.terme)} :</b> ${esc(d.def)}</div>`).join('')}
+      <h2 style="font-size:14px;margin:16px 0 8px">Points d'examen probables</h2><ul class="bul">${(r.points_examen||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul>
       <div class="row mt wrap" style="gap:8px"><button class="btn green sm" onclick='saveSummary(${attr({subject:subj,...r})})'>${ic('check')} Sauvegarder</button>
       <button class="btn pink sm" onclick='cardsFromSummary(${attr(r)})'>${ic('cards')} Créer des flashcards</button></div>`;
   }catch(e){$('#pptOut').innerHTML=aiError(e,'doSummary()');}
@@ -713,9 +713,9 @@ function saveSummary(data){S.summaries.unshift({id:uid(),date:todayISO(),subject
 function viewSummary(id){const s=S.summaries.find(x=>x.id===id);const r=s.data;
   modal(`<div class="modal-head"><h2>${esc(r.titre||s.title)}</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div>
   <div class="modal-body"><div class="chip yellow mb">${ic('bulb','ic-sm')} ${esc(r.a_retenir||'')}</div>
-    <h4 style="margin:10px 0 6px">Concepts clés</h4><ul class="bul">${(r.concepts||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
-    <h4 style="margin:14px 0 6px">Définitions</h4>${(r.definitions||[]).map(d=>`<div class="mb"><b>${esc(d.terme)} :</b> ${esc(d.def)}</div>`).join('')}
-    <h4 style="margin:14px 0 6px">Points d'examen</h4><ul class="bul">${(r.points_examen||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul></div>`,true);}
+    <h3 style="margin:10px 0 6px;font-size:14px">Concepts clés</h3><ul class="bul">${(r.concepts||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
+    <h3 style="margin:14px 0 6px;font-size:14px">Définitions</h3>${(r.definitions||[]).map(d=>`<div class="mb"><b>${esc(d.terme)} :</b> ${esc(d.def)}</div>`).join('')}
+    <h3 style="margin:14px 0 6px;font-size:14px">Points d'examen</h3><ul class="bul">${(r.points_examen||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul></div>`,true);}
 function cardsFromSummary(r){const defs=(r.definitions||[]).map(d=>({recto:d.terme,verso:d.def}));const pts=(r.concepts||[]).slice(0,4).map(c=>({recto:'Explique : '+String(c).split(':')[0].slice(0,60),verso:c}));const all=[...defs,...pts];if(!all.length)return toast('Rien à convertir','err');all.forEach(c=>addCard(c.recto,c.verso,'medecine'));toast(all.length+' flashcards créées','ok');buildNav();}
 
 /* ---------- 7 · FICHES MÉDICAMENTS ---------- */
@@ -787,11 +787,11 @@ async function doCase(){
 }
 function renderCaseView(r,inModal){
   const body=`<div class="chip violet mb">${(r.subjects||[]).map(s=>SUBJECTS[s]?.name).filter(Boolean).join(' + ')}</div>
-    <h3 style="margin-bottom:8px">${esc(r.titre)}</h3>
+    <h2 style="margin-bottom:8px">${esc(r.titre)}</h2>
     <div class="situ">${esc(r.vignette)}</div>
     ${(r.questions||[]).map((q,i)=>`<div class="q-card"><div class="q-num">Question ${i+1}</div><div style="font-weight:600;margin:8px 0;font-size:15px">${esc(q.question)}</div>
       <details style="cursor:pointer"><summary style="color:var(--blue-d);font-weight:600;font-size:13.5px">Voir la piste de réponse</summary><div class="q-explain" style="margin-top:10px"><b>Jugement clinique attendu :</b> ${esc(q.piste)}</div></details></div>`).join('')}
-    <div class="anno role"><h4>${ic('bulb','ic-sm')} Débreffage intégrateur</h4><p>${esc(r.debreffage)}</p></div>`;
+    <div class="anno role"><h3>${ic('bulb','ic-sm')} Débreffage intégrateur</h3><p>${esc(r.debreffage)}</p></div>`;
   if(inModal){modal(`<div class="modal-head"><h2>Cas clinique</h2><button class="btn icon ghost" aria-label="Fermer" onclick="closeModal()">${ic('x')}</button></div><div class="modal-body">${body}</div>`,true);}
   else{$('#caseOut').innerHTML=`<div class="card pad">${body}</div><div class="hr"></div>${savedCases()}`;}
 }
@@ -910,7 +910,7 @@ async function doQuiz(){
 }
 function renderQuizRun(){
   const q=currentQuiz.questions||[];
-  $('#quizOut').innerHTML=`<div class="row between mb"><h3>${esc(currentQuiz.titre||'Quiz de pratique')}</h3><span class="chip blue">${q.length} questions</span></div>
+  $('#quizOut').innerHTML=`<div class="row between mb"><h2>${esc(currentQuiz.titre||'Quiz de pratique')}</h2><span class="chip blue">${q.length} questions</span></div>
     ${q.map((qq,i)=>quizQ(qq,i)).join('')}
     <div class="center mt">${quizRevealed?`<div class="chip green" style="font-size:15px;padding:11px 20px">Score : ${Math.round(quizScore()/q.length*100)}% (${quizScore().toFixed(1)} / ${q.length})</div><br><br>`:''}
       <button class="btn ${quizRevealed?'':'primary'}" onclick="${quizRevealed?'renderQuiz()':'revealQuiz()'}">${quizRevealed?'Nouveau quiz':'Corriger le quiz'}</button></div>`;
@@ -1013,10 +1013,10 @@ async function doServiceSheet(){
   btn.disabled=false;btn.innerHTML=ic('spark')+' Générer la fiche de préparation';
 }
 function sheetHTML(s){const list=(t,arr,icn)=>arr&&arr.length?`<div style="margin-top:10px"><div class="row" style="gap:6px;color:var(--ink-2);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${ic(icn,'ic-sm')} ${t}</div><ul class="bul" style="font-size:13.5px">${arr.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
-  return `<div class="card pad mb"><div class="row between"><h3 class="row" style="gap:8px">${ic('steth')} ${esc(s.service)}</h3><button class="btn icon ghost sm" aria-label="Supprimer la fiche de service" onclick="S.stage.sheets=S.stage.sheets.filter(x=>x.id!=='${s.id}');save('stage');renderStage()">${ic('trash')}</button></div>
+  return `<div class="card pad mb"><div class="row between"><h2 class="row" style="gap:8px">${ic('steth')} ${esc(s.service)}</h2><button class="btn icon ghost sm" aria-label="Supprimer la fiche de service" onclick="S.stage.sheets=S.stage.sheets.filter(x=>x.id!=='${s.id}');save('stage');renderStage()">${ic('trash')}</button></div>
     <div class="anno" style="margin-top:10px"><p><b>Clientèle :</b> ${esc(s.clientele)}</p></div>
     ${list('Pathologies fréquentes',s.pathologies,'heart')}${list('Médicaments courants',s.medicaments,'pill')}${list('Priorités de surveillance',s.surveillances,'alert')}${list('Gestes fréquents',s.gestes,'syringe')}
-    ${s.conseil?`<div class="anno role" style="margin-top:10px"><h4>${ic('bulb','ic-sm')} Conseil</h4><p>${esc(s.conseil)}</p></div>`:''}</div>`;}
+    ${s.conseil?`<div class="anno role" style="margin-top:10px"><h3>${ic('bulb','ic-sm')} Conseil</h3><p>${esc(s.conseil)}</p></div>`:''}</div>`;}
 
 /* ==================================================================
    11 · OUTILS CLINIQUES (doses, SBAR, références)
@@ -1115,9 +1115,9 @@ function renderAnatomy(){
   setTimeout(()=>{try{if(!window.THREE)throw new Error('Three.js non chargé');ANATOMY.init($('#viewer3d'),PATHO3D[anatomyKey].build,anatomyPatho);const ld=$('#v3dLoading');if(ld)ld.remove();}catch(e){const v=$('#viewer3d');if(v)v.innerHTML+=`<div style="color:#fff;padding:30px;text-align:center;position:absolute;inset:0;display:grid;place-items:center">Rendu 3D indisponible ici.<br><small style="opacity:.7">${esc(e.message)}</small></div>`;}},80);
 }
 function renderAnatomyAnno(){const p=PATHO3D[anatomyKey];const el=$('#anatomyAnno');if(!el)return;
-  el.innerHTML=`<div class="card pad"><h3 class="mb">${p.label}</h3>
-    <div class="anno"><h4>${ic('bulb','ic-sm')} Physiopathologie</h4><p>${p.physio}</p></div>
-    <div class="anno role"><h4>${ic('steth','ic-sm')} Rôle infirmier</h4><p>${p.role}</p></div>
+  el.innerHTML=`<div class="card pad"><h2 class="mb">${p.label}</h2>
+    <div class="anno"><h3>${ic('bulb','ic-sm')} Physiopathologie</h3><p>${p.physio}</p></div>
+    <div class="anno role"><h3>${ic('steth','ic-sm')} Rôle infirmier</h3><p>${p.role}</p></div>
     <div class="row wrap mt" style="gap:8px"><button class="btn sm violet" onclick="go('schemas');setTimeout(()=>{var e=document.getElementById('schPatho');if(e){e.value='${p.label}'}},160)">${ic('share')} Schéma intégrateur</button>
       <button class="btn sm" onclick="go('meds');setTimeout(()=>{var e=document.getElementById('medPatho');if(e){e.value='${p.label}';doMeds()}},220)">${ic('pill')} Médicaments liés</button></div></div>`;
 }
@@ -1282,7 +1282,7 @@ function drawSchema(){
       nodes+=`<g class="snode" onclick="schemaNode(${k},${ni})"><rect x="${x}" y="${y}" width="${CW}" height="${NH}" rx="13" fill="${colColors[k]}14" stroke="${colColors[k]}55" stroke-width="1.5"/><foreignObject x="${x+10}" y="${y+8}" width="${CW-20}" height="${NH-16}"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#182335;line-height:1.3;display:flex;align-items:center;height:100%">${esc(nd.label)}</div></foreignObject></g>`;
     });
   });
-  $('#schOut').innerHTML=`<div class="card pad"><div class="row between mb wrap" style="gap:8px"><h3>${esc(d.titre||'Schéma intégrateur')}</h3><span class="chip muted">Clique un concept pour le détail</span></div>
+  $('#schOut').innerHTML=`<div class="card pad"><div class="row between mb wrap" style="gap:8px"><h2>${esc(d.titre||'Schéma intégrateur')}</h2><span class="chip muted">Clique un concept pour le détail</span></div>
     <div class="schema-wrap"><svg class="schema" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${lines}${heads}${nodes}</svg></div></div>`;
 }
 function schemaNode(k,ni){const nd=currentSchema.cols[k].nodes[ni];const ct=currentSchema.cols[k].title;
@@ -1297,8 +1297,8 @@ function showOnboarding(){
   <div class="modal-body">
     <p style="font-size:14px;line-height:1.6;margin-bottom:14px">Ton compagnon d'étude en soins infirmiers : organisation, révision, préparation aux examens et aux stages — avec un tuteur nommé <b>Friday</b>.</p>
     <label class="field"><span>Ton prénom (facultatif)</span><input class="inp" id="obName" placeholder="Ex. Camille"></label>
-    <div class="anno mb"><h4>${ic('spark','ic-sm')} Fonctions IA — facultatives</h4><p>Résumés, quiz et fiches générés par l'IA nécessitent une clé API Anthropic (à ajouter dans Réglages). Tout le reste — tâches, calendrier, flashcards, calculs, 3D — fonctionne sans clé ni connexion.</p></div>
-    <div class="anno" style="border-color:var(--yellow-solid);background:var(--yellow-t)"><h4 style="color:var(--yellow-d)">${ic('alert','ic-sm')} Avis important</h4><p>${DISCLAIMER}</p></div>
+    <div class="anno mb"><h3>${ic('spark','ic-sm')} Fonctions IA — facultatives</h3><p>Résumés, quiz et fiches générés par l'IA nécessitent une clé API Anthropic (à ajouter dans Réglages). Tout le reste — tâches, calendrier, flashcards, calculs, 3D — fonctionne sans clé ni connexion.</p></div>
+    <div class="anno" style="border-color:var(--yellow-solid);background:var(--yellow-t)"><h3 style="color:var(--yellow-d)">${ic('alert','ic-sm')} Avis important</h3><p>${DISCLAIMER}</p></div>
   </div>
   <div class="modal-foot"><button class="btn primary block" onclick="finishOnboarding()">J'ai compris — commencer</button></div>`);
 }
@@ -1334,7 +1334,7 @@ function renderSettings(){
       <div class="row" style="gap:8px"><input class="inp" id="setName" value="${esc(S.profile.name||'')}" placeholder="Ex. Camille"><button class="btn" onclick="saveName()">${ic('check')}</button></div>
       <p class="muted" style="font-size:12px;margin-top:8px">Friday t'accueillera par ton prénom.</p>
       <div class="hr"></div>
-      <div class="anno" style="border-color:var(--yellow-solid);background:var(--yellow-t)"><h4 style="color:var(--yellow-d)">${ic('alert','ic-sm')} Avis important</h4><p style="font-size:12.5px">${DISCLAIMER}</p></div>
+      <div class="anno" style="border-color:var(--yellow-solid);background:var(--yellow-t)"><h2 style="color:var(--yellow-d)">${ic('alert','ic-sm')} Avis important</h2><p style="font-size:12.5px">${DISCLAIMER}</p></div>
       <p class="muted center" style="font-size:11px;margin-top:12px">NursaFlow · version 2.0</p>
     </div>
   </div></div>`;
@@ -1437,6 +1437,6 @@ const friday={
     if(!S.profile.onboarded) setTimeout(showOnboarding,300);
   }catch(e){
     console.error('Erreur d\'initialisation NursaFlow :',e);
-    document.getElementById('main').innerHTML=`<div class="view"><div class="empty"><div class="eic">${ic('alert')}</div><h3>Un problème est survenu au démarrage</h3><p>${esc(e.message)}. Essaie de recharger la page ; tes données déjà sauvegardées sont conservées.</p></div></div>`;
+    document.getElementById('main').innerHTML=`<div class="view"><div class="empty"><div class="eic">${ic('alert')}</div><h2>Un problème est survenu au démarrage</h2><p>${esc(e.message)}. Essaie de recharger la page ; tes données déjà sauvegardées sont conservées.</p></div></div>`;
   }
 })();

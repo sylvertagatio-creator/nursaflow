@@ -11,14 +11,15 @@
 :root{
   /* neutrals — proches de black-100…750 de WDS */
   --white:#FFFFFF; --canvas:#F7F8FA; --canvas-2:#F0F2F5; --canvas-3:#E7EAF0;
-  --ink:#0B1220; --ink-2:#4A4F5E; --ink-3:#7B8094; --ink-4:#AFB3C0;
+  /* ink-3/ink-4 assombris (P0-4) : ≥ 4,5:1 sur blanc et sur canvas-2 */
+  --ink:#0B1220; --ink-2:#4A4F5E; --ink-3:#646B7C; --ink-4:#6E7488;
   --line:#E3E5EC; --line-2:#EDEEF3;
 
   /* accent principal — bleu WDS #116DFF, ajusté légèrement pour contraste texte */
   --blue:#1464F0; --blue-d:#0D4FCB; --blue-t:#EAF1FF;
   --pink:#E31C79; --pink-d:#C4145F; --pink-t:#FCEAF3;
   --green:#1F8845; --green-d:#146633; --green-t:#E7F5EA;
-  --yellow:#B75F00; --yellow-d:#8A4700; --yellow-t:#FCF0DC; --yellow-solid:#F5A623;
+  --yellow:#A85600; --yellow-d:#8A4700; --yellow-t:#FCF0DC; --yellow-solid:#F5A623;
   --teal:#0C8887; --teal-d:#08655F; --teal-t:#E1F3F2;
   --violet:#6544F9; --violet-d:#4F2FE0; --violet-t:#EDE9FE;
   --indigo:#4550E5; --indigo-t:#E9EAFB;
@@ -47,6 +48,9 @@ html,body{height:100%}
 body{font-family:var(--f-body);color:var(--ink);background:var(--canvas);font-size:14px;line-height:1.5;
   -webkit-font-smoothing:antialiased;overflow:hidden}
 h1,h2,h3,h4{font-family:var(--f-disp);font-weight:700;letter-spacing:-.01em;line-height:1.2;color:var(--ink)}
+/* P0-4 : l'ordre des titres est sémantique (h1→h2→h3) ; les titres de section
+   promus en h2 gardent leur taille visuelle d'origine (celle d'un h3 UA) */
+.view h2,.card h2,.modal-body h2{font-size:1.17em}
 button{font-family:inherit;cursor:pointer;color:inherit}
 input,select,textarea{font-family:inherit;font-size:14px}
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:var(--r-2)}
@@ -151,7 +155,7 @@ label.field{display:block;margin-bottom:var(--sp-4)}
 .empty{text-align:center;padding:40px 20px;color:var(--ink-3)}
 .empty .eic{width:52px;height:52px;margin:0 auto 12px;border-radius:var(--r-6);background:var(--canvas-2);display:grid;place-items:center;color:var(--ink-4)}
 .empty .eic .ic{width:26px;height:26px}
-.empty h3{color:var(--ink-2);font-size:15px;margin-bottom:4px;font-weight:600}
+.empty h2,.empty h3{color:var(--ink-2);font-size:15px;margin-bottom:4px;font-weight:600}
 .empty p{font-size:13px;max-width:340px;margin:0 auto;color:var(--ink-3)}
 
 /* stat — surfaces claires avec puce d'icône teintée plutôt que dégradé plein (langage badge/fill-accent WDS) */
@@ -195,7 +199,7 @@ label.field{display:block;margin-bottom:var(--sp-4)}
 .subj:hover{transform:translateY(-3px);box-shadow:var(--sh)}
 .subj .sic{width:38px;height:38px;border-radius:var(--r-4);background:rgba(255,255,255,.2);display:grid;place-items:center}
 .subj .sic .ic{width:20px;height:20px}
-.subj h3{font-size:16px;color:#fff;font-weight:700}
+.subj h2,.subj h3{font-size:16px;color:#fff;font-weight:700}
 .subj .bar{height:5px;background:rgba(255,255,255,.28);border-radius:99px;margin-top:8px}
 .subj .bar>i{display:block;height:100%;background:#fff;border-radius:99px;transition:width .5s var(--ease)}
 .subj small{opacity:.9;font-size:11px;font-weight:600}
@@ -325,7 +329,7 @@ label.field{display:block;margin-bottom:var(--sp-4)}
 .v3d-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.75);font-size:13px;gap:10px}
 .anno{padding:13px 15px;border-left:3px solid var(--blue);background:var(--blue-t);border-radius:0 var(--r-4) var(--r-4) 0;margin-bottom:9px}
 .anno.role{border-color:var(--green);background:var(--green-t)}
-.anno h4{font-size:12.5px;margin-bottom:4px;display:flex;align-items:center;gap:6px;font-weight:700}
+.anno h2,.anno h3,.anno h4{font-size:12.5px;margin-bottom:4px;display:flex;align-items:center;gap:6px;font-weight:700}
 .anno p{font-size:13px;line-height:1.55;color:var(--ink-2)}
 
 /* schema (concept map) */
